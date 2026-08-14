@@ -20,6 +20,25 @@ export interface EvaluationReport {
     strategy?: string
     created_at?: string
     status?: string
+    scope?: {
+      document_count?: number
+      question_count?: number
+      fully_supported?: number
+      partially_supported?: number
+      unsupported?: number
+      coverage_policy?: string
+    }
+    target?: {
+      corpus_id?: string
+      dataset_name?: string
+      dataset_version?: string
+      document_count?: number
+      chunk_count?: number
+      source_distribution?: Record<string, number>
+      lexical_backend?: string
+      vector_backend?: string
+      status?: string
+    }
   }
   metrics?: Record<string, unknown>
   layers?: {

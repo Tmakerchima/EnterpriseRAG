@@ -13,3 +13,18 @@ def test_typed_sse_unicode_and_legacy_marker() -> None:
     assert sources[0]["document_id"] == "文档-1"
     assert metrics["total_ms"] == 3
     assert error is None
+
+
+def test_legacy_plain_text_tokens_preserve_answer_spaces() -> None:
+    stream = (
+        "event: token\ndata:Hello\n\n"
+        "event: token\ndata: world\n\n"
+        "event: message\ndata:!\n\n"
+    )
+
+    answer, sources, metrics, error = collect_messages([stream])
+
+    assert answer == "Hello world!"
+    assert sources == []
+    assert metrics == {}
+    assert error is None

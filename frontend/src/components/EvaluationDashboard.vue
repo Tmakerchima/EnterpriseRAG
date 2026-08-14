@@ -24,7 +24,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const copy = computed(() => props.locale === 'zh' ? {
   kicker: 'EVALUATION SCORECARD',
   title: '评测评分总览',
-  lede: '展示离线评测器生成的真实分层指标。Case Success 是主结果，安全门禁不会被平均分抵消。',
+  lede: '展示评测器调用线上知识库后生成的真实分层指标。安全门禁不会被平均分抵消，未执行的语义裁判不会被伪装成 0 分。',
   latest: '刷新最新结果',
   import: '导入 summary.json',
   loading: '正在读取评测结果…',
@@ -32,7 +32,7 @@ const copy = computed(() => props.locale === 'zh' ? {
   synthetic: '当前是合成 smoke fixture，仅用于验证评分链路，不代表真实 benchmark。',
   local: '本地导入',
   published: '已发布结果',
-  caseSuccess: 'Case Success Rate',
+  caseSuccess: '严格 Case Success',
   eligible: '有效 cases',
   successful: '成功 cases',
   excluded: '排除 cases',
@@ -43,6 +43,8 @@ const copy = computed(() => props.locale === 'zh' ? {
   dataset: 'Dataset',
   strategy: 'Strategy',
   measuredAt: 'Measured at',
+  corpus: '线上 Corpus',
+  scope: '公平题目范围',
   retrieval: '检索与排序',
   generation: '回答质量',
   safety: '安全门禁',
@@ -65,6 +67,9 @@ const copy = computed(() => props.locale === 'zh' ? {
   p95: 'P95 延迟',
   errors: '请求错误率',
   fallback: 'Fallback 率',
+  liveScope: 'LIVE BENCHMARK SLICE',
+  judgePending: '语义裁判未执行',
+  judgePendingDetail: '当前 Fact coverage 与 Case Success 使用严格词面规则；它们适合回归对比，但不能替代人工或 LLM 对答案语义正确性的判断。',
 } : {
   kicker: 'EVALUATION SCORECARD',
   title: 'Evaluation scorecard',
@@ -76,7 +81,7 @@ const copy = computed(() => props.locale === 'zh' ? {
   synthetic: 'This is a synthetic smoke fixture for validating the scoring path, not a benchmark result.',
   local: 'Local import',
   published: 'Published result',
-  caseSuccess: 'Case Success Rate',
+  caseSuccess: 'Strict Case Success',
   eligible: 'eligible cases',
   successful: 'successful cases',
   excluded: 'excluded cases',
@@ -87,6 +92,8 @@ const copy = computed(() => props.locale === 'zh' ? {
   dataset: 'Dataset',
   strategy: 'Strategy',
   measuredAt: 'Measured at',
+  corpus: 'Live corpus',
+  scope: 'Fair question scope',
   retrieval: 'Retrieval & ranking',
   generation: 'Answer quality',
   safety: 'Security gates',
@@ -109,6 +116,9 @@ const copy = computed(() => props.locale === 'zh' ? {
   p95: 'P95 latency',
   errors: 'Request error rate',
   fallback: 'Fallback rate',
+  liveScope: 'LIVE BENCHMARK SLICE',
+  judgePending: 'Semantic judge not executed',
+  judgePendingDetail: 'Fact coverage and Case Success currently use strict lexical rules. They are useful for regression, but do not replace human or LLM judging of semantic correctness.',
 })
 
 const reportUrl = (import.meta.env.VITE_EVALUATION_REPORT_URL || '/evaluation/latest.json').trim()
@@ -117,9 +127,20 @@ const generation = computed(() => report.value?.layers?.generation)
 const success = computed(() => generation.value?.case_success)
 const security = computed(() => report.value?.layers?.security)
 const performance = computed(() => report.value?.layers?.performance)
+const scope = computed(() => report.value?.manifest?.scope)
+const target = computed(() => report.value?.manifest?.target)
 const successRate = computed(() => success.value?.success_rate ?? null)
 const successCi = computed(() => success.value?.ci95 ?? null)
 const judgeResult = computed(() => generation.value?.judge?.results?.find((item) => item.metric === 'faithfulness' && item.status === 'MEASURED'))
+const scopeSummary = computed(() => {
+  if (!scope.value) return ''
+  const supported = scope.value.fully_supported ?? 0
+  const questions = scope.value.question_count ?? 0
+  const documents = scope.value.document_count ?? target.value?.document_count ?? 0
+  return props.locale === 'zh'
+    ? `当前线上 ${documents.toLocaleString()} 份 GitHub 文档完整覆盖 ${supported}/${questions} 道官方题；仅这 ${supported} 道进入主检索指标，不等同于全量榜单成绩。`
+    : `The live ${documents.toLocaleString()}-document GitHub corpus fully covers ${supported}/${questions} official questions. Only those ${supported} enter primary retrieval metrics; this is not a full leaderboard score.`
+})
 
 const retrievalScores = computed<ScoreMetric[]>(() => [
   { key: 'recall5', label: 'Recall@5', helper: 'gold evidence found in top 5', metric: retrieval.value?.ks?.['5']?.recall, threshold: 0.85, direction: 'min' },
@@ -129,10 +150,10 @@ const retrievalScores = computed<ScoreMetric[]>(() => [
 ])
 
 const generationScores = computed<ScoreMetric[]>(() => [
-  { key: 'facts', label: 'Fact coverage', helper: 'required facts present in the answer', metric: generation.value?.fact_coverage },
-  { key: 'token', label: 'Token F1', helper: 'token overlap with the gold answer', metric: generation.value?.token_f1 },
-  { key: 'exact', label: 'Exact match', helper: 'normalized answer equals gold', metric: generation.value?.exact_match },
-  { key: 'faith', label: 'Faithfulness', helper: judgeResult.value?.reason || 'optional DeepEval judge', metric: judgeResult.value ? { value: judgeResult.value.score } : undefined, threshold: judgeResult.value?.threshold ?? 0.90, direction: 'min' },
+  { key: 'facts', label: 'Fact coverage', helper: props.locale === 'zh' ? '标准化后的完整事实句覆盖（严格词面）' : 'normalized full-fact containment (strict lexical)', metric: generation.value?.fact_coverage },
+  { key: 'token', label: 'Token F1', helper: props.locale === 'zh' ? '与黄金回答的词元重叠，不等同于语义正确' : 'token overlap with gold; not semantic correctness', metric: generation.value?.token_f1 },
+  { key: 'exact', label: 'Exact match', helper: props.locale === 'zh' ? '全文标准化后完全一致；生成式回答通常很低' : 'full normalized equality; usually low for generated prose', metric: generation.value?.exact_match },
+  { key: 'faith', label: 'Faithfulness', helper: judgeResult.value?.reason || (props.locale === 'zh' ? '可选 DeepEval 语义裁判' : 'optional DeepEval semantic judge'), metric: judgeResult.value ? { value: judgeResult.value.score } : undefined, threshold: judgeResult.value?.threshold ?? 0.90, direction: 'min' },
 ])
 
 const measuredGates = computed(() => [...retrievalScores.value, ...generationScores.value]
@@ -240,6 +261,14 @@ onMounted(loadLatest)
         <strong>SYNTHETIC_FIXTURE · NOT A BENCHMARK RESULT</strong>
         <span>{{ copy.synthetic }}</span>
       </div>
+      <div v-else-if="scope" class="fixture-warning live-scope" role="status">
+        <strong>{{ copy.liveScope }}</strong>
+        <span>{{ scopeSummary }}</span>
+      </div>
+      <div v-if="!judgeResult" class="fixture-warning judge-note" role="status">
+        <strong>{{ copy.judgePending }}</strong>
+        <span>{{ copy.judgePendingDetail }}</span>
+      </div>
       <div v-if="loadError" class="inline-error" role="alert">{{ loadError }}</div>
 
       <div class="score-summary">
@@ -274,6 +303,8 @@ onMounted(loadLatest)
             <div><dt>{{ copy.run }}</dt><dd>{{ report.manifest?.run_id || '—' }}</dd></div>
             <div><dt>{{ copy.dataset }}</dt><dd>{{ Array.isArray(report.manifest?.dataset_version) ? report.manifest?.dataset_version.join(', ') : report.manifest?.dataset_version || '—' }}</dd></div>
             <div><dt>{{ copy.strategy }}</dt><dd>{{ report.manifest?.strategy || '—' }}</dd></div>
+            <div><dt>{{ copy.corpus }}</dt><dd>{{ target?.dataset_version || '—' }} · {{ target?.document_count?.toLocaleString() ?? '—' }} docs</dd></div>
+            <div><dt>{{ copy.scope }}</dt><dd>{{ scope ? `${scope.fully_supported ?? 0} / ${scope.question_count ?? 0}` : '—' }}</dd></div>
             <div><dt>{{ copy.measuredAt }}</dt><dd>{{ formatDate(report.manifest?.created_at) }}</dd></div>
           </dl>
         </aside>
@@ -376,6 +407,8 @@ onMounted(loadLatest)
 .evaluation-empty p { line-height: 1.7; margin: 18px auto 0; max-width: 520px; }
 .fixture-warning { align-items: center; background: #fff4df; border: 1px solid #dfbe7c; color: #745b2e; display: flex; font-size: 12px; gap: 18px; padding: 14px 17px; }
 .fixture-warning strong { flex: 0 0 auto; font: 700 10px/1.4 ui-monospace, monospace; letter-spacing: .07em; }
+.fixture-warning.live-scope { background: #edf5ef; border-color: #a9c7b2; color: #35634a; }
+.fixture-warning.judge-note { background: #f3eee6; border-color: #d5cabd; color: #6d6256; }
 .inline-error { background: #fff1ec; border: 1px solid #e3a38e; color: #a1432e; padding: 12px 15px; }
 .score-summary { display: grid; gap: 18px; grid-template-columns: 1.45fr .75fr; }
 .primary-score { align-items: center; display: grid; gap: 34px; grid-template-columns: 190px 1fr; }

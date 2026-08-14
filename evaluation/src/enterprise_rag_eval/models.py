@@ -62,6 +62,16 @@ class EvaluationCase:
     def from_dict(cls, raw: dict[str, Any]) -> EvaluationCase:
         if not isinstance(raw, dict):
             raise TypeError("case must be an object")
+        raw = dict(raw)
+        # The public EnterpriseRAG-Bench uses question_id/question_type. Accept
+        # it directly so coverage-filtered official files do not need a second,
+        # lossy conversion step before collection and scoring.
+        if not raw.get("case_id") and raw.get("question_id"):
+            raw["case_id"] = raw["question_id"]
+            raw.setdefault("category", raw.get("question_type", "general"))
+            raw.setdefault("source", "enterprise-rag-bench")
+            raw.setdefault("dataset_version", "EnterpriseRAG-Bench-v1.0.0")
+            raw.setdefault("tags", raw.get("source_types", []))
         try:
             CaseModel.model_validate(raw)
         except ValidationError as error:

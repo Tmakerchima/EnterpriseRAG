@@ -9,93 +9,720 @@
       "case_success": {
         "cases": [
           {
-            "case_id": "smoke-1",
-            "reasons": [],
-            "success": true
+            "case_id": "qst_0001",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
           },
           {
-            "case_id": "smoke-2",
-            "reasons": [],
-            "success": true
+            "case_id": "qst_0010",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0020",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0052",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0074",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0075",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0097",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0103",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0125",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0127",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0140",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0146",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0148",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0160",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0167",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0180",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0192",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0232",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0246",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0266",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0276",
+            "reasons": [
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0290",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0322",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
+          },
+          {
+            "case_id": "qst_0339",
+            "reasons": [
+              "FACT_COVERAGE_BELOW_REQUIRED"
+            ],
+            "success": false
           }
         ],
         "ci95": [
-          0.34238022750665303,
-          1.0
+          1.3877787807814457e-17,
+          0.13797620467498017
         ],
-        "eligible_cases": 2,
+        "eligible_cases": 24,
         "excluded_cases": 0,
         "status": "MEASURED",
-        "success_rate": 1.0,
-        "successful_cases": 2
+        "success_rate": 0.0,
+        "successful_cases": 0
       },
       "cases": [
         {
-          "case_id": "smoke-1",
-          "citation_schema_valid": 1.0,
-          "empty_answer": 0.0,
-          "error": false,
-          "exact_match": 1.0,
-          "fact_coverage": 1.0,
-          "token_f1": 1.0
-        },
-        {
-          "case_id": "smoke-2",
+          "case_id": "qst_0001",
           "citation_schema_valid": 1.0,
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": null,
-          "token_f1": null
+          "fact_coverage": 0.0,
+          "token_f1": 0.2456140350877193
+        },
+        {
+          "case_id": "qst_0010",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.3684210526315789
+        },
+        {
+          "case_id": "qst_0020",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.2653061224489796
+        },
+        {
+          "case_id": "qst_0052",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.3018867924528302
+        },
+        {
+          "case_id": "qst_0074",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.20338983050847456
+        },
+        {
+          "case_id": "qst_0075",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.1267605633802817
+        },
+        {
+          "case_id": "qst_0097",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.3333333333333333
+        },
+        {
+          "case_id": "qst_0103",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.2040816326530612
+        },
+        {
+          "case_id": "qst_0125",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.07228915662650602
+        },
+        {
+          "case_id": "qst_0127",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.38016528925619836
+        },
+        {
+          "case_id": "qst_0140",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.0813953488372093
+        },
+        {
+          "case_id": "qst_0146",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.3190184049079755
+        },
+        {
+          "case_id": "qst_0148",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.15748031496062992
+        },
+        {
+          "case_id": "qst_0160",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.28758169934640526
+        },
+        {
+          "case_id": "qst_0167",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.3333333333333333
+        },
+        {
+          "case_id": "qst_0180",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.19148936170212763
+        },
+        {
+          "case_id": "qst_0192",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.26993865030674846
+        },
+        {
+          "case_id": "qst_0232",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.1797752808988764
+        },
+        {
+          "case_id": "qst_0246",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.10810810810810811
+        },
+        {
+          "case_id": "qst_0266",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.20740740740740743
+        },
+        {
+          "case_id": "qst_0276",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.16113744075829384
+        },
+        {
+          "case_id": "qst_0290",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.26666666666666666
+        },
+        {
+          "case_id": "qst_0322",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.2857142857142857
+        },
+        {
+          "case_id": "qst_0339",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": 0.0,
+          "token_f1": 0.10218978102189781
         }
       ],
       "citation_schema_valid": {
         "ci95": [
-          0.34238022750665303,
+          0.8620237953250198,
           1.0
         ],
-        "count": 2,
+        "count": 24,
         "value": 1.0
       },
-      "eligible_cases": 2,
+      "eligible_cases": 24,
       "exact_match": {
         "ci95": [
-          0.09453120573423074,
-          0.9054687942657693
+          1.3877787807814457e-17,
+          0.13797620467498017
         ],
-        "count": 2,
-        "value": 0.5
+        "count": 24,
+        "value": 0.0
       },
       "fact_coverage": {
         "ci95": [
-          0.20654931437723745,
-          1.0
+          1.3877787807814457e-17,
+          0.13797620467498017
         ],
-        "count": 1,
-        "value": 1.0
+        "count": 24,
+        "value": 0.0
       },
       "judge": {
         "primary_framework": null,
         "results": [
           {
-            "cache_key": "f6bd15013af2480b9fc0b8bd7fb3a5f7e17383a17450746e4947c05e9908f742",
+            "cache_key": "11fab61406d772d58db9d398ef094149a8c0d4ad5f669ea0ae01477f28fbe06f",
             "framework_version": null,
             "judge_model": null,
             "metric": "faithfulness",
             "passed": null,
-            "reason": "synthetic smoke does not invoke a paid judge",
+            "reason": "judge dependency or key is not configured",
             "rubric_version": "rag.v1",
             "score": null,
             "status": "NOT_EXECUTED",
             "threshold": null
           },
           {
-            "cache_key": "55158ec1e4170203384a31f17e563a8faf671661ab298a88cd4bd9f2aba6ab66",
+            "cache_key": "ab07f82bb4d60d3766697f5e39cfddbfd2b78081bdf1bd9d1776e1033a2ae5fe",
             "framework_version": null,
             "judge_model": null,
             "metric": "faithfulness",
             "passed": null,
-            "reason": "synthetic smoke does not invoke a paid judge",
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "0d1f1af547b1904385c6b7680a1a76921126d8da0c9204d5029503110f0f3c76",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "b663de9881e9d4152b7c0ef53072e74ce03e9fc11defb654c7553b404e875ce2",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "4bc6345f914088267a7c864b930b507240c451b2b349756649b2dd3490e83b16",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "3ba4dff537e4dc8675827ba56638615494e43d3dc956d9f9f5776942ed17d04b",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "9a83a84bf1dd8a3a5281b60e824b6c4a13cb67455651d8d267f9a947e9fc2f36",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "f03242204be2b81eb58b74e9554a2959ccdd6d6a1b0cfcbe27475c4c52278945",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "7b08dfa33cf2e662c7a50fdf721ff18bdadfcec3c758be576930bd8f551ad55c",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "4fdb909de04fcebfeeccb6a22e31f8e8b47d532ab0c85204e80bb4d48af5312a",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "349772d4e629b9dab5e96a685f392fed87d2e3b0d20634e91ceba2d3492c57be",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "821da694f1e1dc0e1553ae663abd7bac3faa3d7fdc6f250ef3cab114aea04881",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "fdbbb6b933b28adae6f9145807954a0fefce64dc2f701b4ba182f79554b6790f",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "abe4ddfed5b6e66a2588e847bb20c457ea9be8e0d97f7e8051161687fe050655",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "b2154b7ed383f5d8f1d741f7963eaa80e3f9d626bb2966740b1bb488c8f794bc",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "27d7b7e48fc000d1f33471a1d11b58f2f5c7f76458d5980e3290e73e5e45a54b",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "b5c979bfb3f9e46c241ed6b040cb1d57ad20b331af5cd4ecc566b45bfb9ada73",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "9ef92effd6f94748457afc89b8528a52663f56b2cb1fceecbd23825112a07529",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "3c30138cc4c0c92a55c66ef29d2fe200769e254194ce859f2967e78a123aeaaa",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "839dad133ad8d72301a427ca189ff83a69860d519bf09f5bc286faaa2ab48b65",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "ed74890083cd8e478a39ee62139a1a01b53f76bae47883a6ce97c0d8e35d4752",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "b295baca6b1c857275da15f2b9e662a2f647fc8bc62d187d52e10e98914bd712",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "1cb04fadf030b8633ae957d6bca228905c96bd8ee2c59fa716736c92e5aecaec",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "b15d87b50a3dc8ab12289b0fe6cd9b0e253fed56e103fa09daa0d1ef037c809c",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "judge dependency or key is not configured",
             "rubric_version": "rag.v1",
             "score": null,
             "status": "NOT_EXECUTED",
@@ -106,230 +733,196 @@
       },
       "status": "MEASURED",
       "token_f1": {
-        "ci95": [
-          0.20654931437723745,
-          1.0
-        ],
-        "count": 1,
-        "value": 1.0
+        "ci95": null,
+        "count": 24,
+        "value": 0.227186828847872
       }
     },
     "performance": {
-      "request_count": 2,
-      "status": "NOT_EXECUTED"
+      "error_rate": 0.0,
+      "fallback_rate": 0.0,
+      "p50_ms": 5230.5,
+      "p95_ms": 6384.95,
+      "p99_ms": 6493.0,
+      "request_count": 24,
+      "status": "MEASURED"
     },
     "retrieval": {
-      "eligible_cases": 1,
+      "eligible_cases": 24,
       "excluded": {
         "missing_prediction": 0,
-        "no_gold": 1
+        "no_gold": 0
       },
       "ks": {
         "1": {
           "hit_rate": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           },
           "map": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           },
           "mrr": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           },
           "ndcg": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           },
           "precision": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           },
           "recall": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.3142742581957335,
+              0.6857257418042665
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.5
           }
         },
         "10": {
           "hit_rate": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.5083230633550337,
+              0.8508535180303913
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.7083333333333334
           },
           "map": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5777777777777777
           },
           "mrr": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5777777777777777
           },
           "ndcg": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.6103630130990607
           },
           "precision": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.19166666666666668
           },
           "recall": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.5083230633550337,
+              0.8508535180303913
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.7083333333333334
           }
         },
         "3": {
           "hit_rate": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.4670631683813174,
+              0.8202780967270225
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.6666666666666666
           },
           "map": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5694444444444444
           },
           "mrr": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5694444444444444
           },
           "ndcg": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5942441461309548
           },
           "precision": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.22222222222222218
           },
           "recall": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.4670631683813174,
+              0.8202780967270225
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.6666666666666666
           }
         },
         "5": {
           "hit_rate": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.5083230633550337,
+              0.8508535180303913
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.7083333333333334
           },
           "map": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5777777777777777
           },
           "mrr": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.5777777777777777
           },
           "ndcg": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.6103630130990607
           },
           "precision": {
-            "ci95": [
-              0.20654931437723745,
-              1.0
-            ],
-            "count": 1,
-            "value": 1.0
+            "ci95": null,
+            "count": 24,
+            "value": 0.19166666666666668
           },
           "recall": {
             "ci95": [
-              0.20654931437723745,
-              1.0
+              0.5083230633550337,
+              0.8508535180303913
             ],
-            "count": 1,
-            "value": 1.0
+            "count": 24,
+            "value": 0.7083333333333334
           }
         }
       },
       "status": "MEASURED"
     },
     "security": {
-      "cases": 2,
+      "cases": 24,
       "forbidden_retrieval_count": 0,
       "hard_gate": "PASS",
       "prompt_injection_compliance_count": 0,
@@ -337,229 +930,222 @@
     }
   },
   "manifest": {
-    "config_hash": "2c9f694c12d209f49fc8865459105969259ddd1eedb0b68383c812070d1b8397",
-    "created_at": "2026-08-14T14:32:44.911598+00:00",
-    "dataset_hash": "33a196f1298deafe00dffacdf0128f1a2a121fc51306d17a035f4ec21ee0c2d6",
+    "config_hash": "1dbb109645b6eecf2fa7bbbe93c70caaba9da8148b8ba4fb552ddbc7636685c1",
+    "created_at": "2026-08-14T21:01:51.959350+00:00",
+    "dataset_hash": "56e6279231421f5800be2d1d3825e225217bbe55449a4f47f3d6014f4942dba6",
     "dataset_version": [
-      "smoke.v1"
+      "EnterpriseRAG-Bench-v1.0.0"
     ],
     "manifest_version": "enterprise-rag.run.v1",
-    "profile": "smoke",
-    "run_id": "frontend-smoke",
+    "profile": "enterprise-rag-bench-github-slice-v1",
+    "run_id": "live-github-slice-20260815-hybrid-v2",
+    "scope": {
+      "coverage_policy": "fully_supported_only",
+      "document_count": 5000,
+      "fully_supported": 24,
+      "partially_supported": 13,
+      "question_count": 500,
+      "status": "measured",
+      "unsupported": 463
+    },
     "seed": 17,
     "status": "MEASURED",
-    "strategy": "HYBRID"
+    "strategy": "HYBRID",
+    "target": {
+      "chunk_count": 13113,
+      "chunker_version": "structure-token-contextual-v2",
+      "corpus_id": "f15c299a-30b5-4369-af0e-669ce56c6de2",
+      "dataset_name": "EnterpriseRAG-Bench",
+      "dataset_version": "v2.0.0",
+      "document_count": 5000,
+      "embedded_chunk_count": 13113,
+      "embedding_dimension": 1024,
+      "embedding_model": "text-embedding-v3",
+      "embedding_provider": "dashscope-compatible",
+      "failed_count": 4,
+      "lexical_backend": "POSTGRES_FTS",
+      "source_distribution": {
+        "github": 5000
+      },
+      "state": "ACTIVE",
+      "status": "READY",
+      "vector_backend": "PGVECTOR"
+    }
   },
   "metrics": {
-    "eligible_cases": 1,
+    "eligible_cases": 24,
     "excluded": {
       "missing_prediction": 0,
-      "no_gold": 1
+      "no_gold": 0
     },
     "ks": {
       "1": {
         "hit_rate": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         },
         "map": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         },
         "mrr": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         },
         "ndcg": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         },
         "precision": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         },
         "recall": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.3142742581957335,
+            0.6857257418042665
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.5
         }
       },
       "10": {
         "hit_rate": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.5083230633550337,
+            0.8508535180303913
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.7083333333333334
         },
         "map": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5777777777777777
         },
         "mrr": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5777777777777777
         },
         "ndcg": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.6103630130990607
         },
         "precision": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.19166666666666668
         },
         "recall": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.5083230633550337,
+            0.8508535180303913
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.7083333333333334
         }
       },
       "3": {
         "hit_rate": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.4670631683813174,
+            0.8202780967270225
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.6666666666666666
         },
         "map": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5694444444444444
         },
         "mrr": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5694444444444444
         },
         "ndcg": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5942441461309548
         },
         "precision": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.22222222222222218
         },
         "recall": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.4670631683813174,
+            0.8202780967270225
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.6666666666666666
         }
       },
       "5": {
         "hit_rate": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.5083230633550337,
+            0.8508535180303913
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.7083333333333334
         },
         "map": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5777777777777777
         },
         "mrr": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.5777777777777777
         },
         "ndcg": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.6103630130990607
         },
         "precision": {
-          "ci95": [
-            0.20654931437723745,
-            1.0
-          ],
-          "count": 1,
-          "value": 1.0
+          "ci95": null,
+          "count": 24,
+          "value": 0.19166666666666668
         },
         "recall": {
           "ci95": [
-            0.20654931437723745,
-            1.0
+            0.5083230633550337,
+            0.8508535180303913
           ],
-          "count": 1,
-          "value": 1.0
+          "count": 24,
+          "value": 0.7083333333333334
         }
       }
     },
     "status": "MEASURED"
   },
   "run_validity": "MEASURED",
-  "synthetic_fixture": true
+  "synthetic_fixture": false
 }

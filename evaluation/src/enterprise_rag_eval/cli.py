@@ -42,6 +42,26 @@ def _predictions(run_dir: Path) -> dict[str, dict[str, Any]]:
     return {str(row["case_id"]): row for row in load_jsonl(path)} if path.exists() else {}
 
 
+def _target_metadata(api_base: str) -> dict[str, Any]:
+    """Capture comparable, non-secret corpus/runtime identity for the run."""
+    allowed = {
+        "status", "corpus_id", "dataset_name", "dataset_version", "state",
+        "document_count", "chunk_count", "embedded_chunk_count", "failed_count",
+        "source_distribution", "embedding_provider", "embedding_model",
+        "embedding_dimension", "chunker_version", "lexical_backend", "vector_backend",
+    }
+    request = urllib.request.Request(
+        api_base.rstrip("/") + "/api/enterprise/health",
+        headers={"Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return {key: payload[key] for key in allowed if key in payload}
+    except (OSError, ValueError, TimeoutError, urllib.error.URLError):
+        return {"status": "UNAVAILABLE"}
+
+
 def validate_dataset(args: argparse.Namespace) -> int:
     try:
         cases = load_cases(args.cases)
@@ -79,15 +99,23 @@ def collect_case(api_base: str, case: EvaluationCase, strategy: str, role: str) 
 def collect(args: argparse.Namespace) -> int:
     cases = load_cases(args.cases)
     args.out.mkdir(parents=True, exist_ok=True)
+    scope = json.loads(args.scope_manifest.read_text(encoding="utf-8")) if args.scope_manifest else {}
+    scope.pop("outputs", None)
+    target = _target_metadata(args.api_base)
     manifest = {"manifest_version": "enterprise-rag.run.v1", "status": "MEASURED", "profile": args.profile,
                 "run_id": args.out.name, "dataset_hash": sha256_file(args.cases),
                 "dataset_version": sorted({case.dataset_version for case in cases}),
-                "config_hash": canonical_hash({"strategy": args.strategy, "role": args.role, "api_base": args.api_base}),
+                "config_hash": canonical_hash({"strategy": args.strategy, "role": args.role,
+                                               "api_base": args.api_base, "scope": scope, "target": target}),
                 "strategy": args.strategy, "seed": args.seed, "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()}
+    if scope:
+        manifest["scope"] = scope
+    manifest["target"] = target
     random.seed(args.seed)
     predictions: list[dict[str, Any]] = []
     traces: list[dict[str, Any]] = []
-    for case in cases[:args.limit] if args.limit else cases:
+    selected_cases = cases[:args.limit] if args.limit else cases
+    for index, case in enumerate(selected_cases, start=1):
         try:
             prediction = collect_case(args.api_base, case, args.strategy, args.role)
             predictions.append(prediction)
@@ -106,9 +134,9 @@ def collect(args: argparse.Namespace) -> int:
                            "candidate_document_ids": [], "final_document_ids": [], "gold_valid": True,
                            "coverage_status": "unknown", "deterministic_failure": True,
                            "error": str(error)})
+        print(f"collected {index}/{len(selected_cases)} {case.case_id}", file=sys.stderr, flush=True)
     write_jsonl(args.out / "predictions.jsonl", predictions)
     write_jsonl(args.out / "traces.jsonl", traces)
-    selected_cases = cases[:args.limit] if args.limit else cases
     write_jsonl(args.out / "cases.jsonl", [case.to_dict() for case in selected_cases])
     _json(args.out / "run-manifest.json", manifest)
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
@@ -282,7 +310,7 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
     dataset = commands.add_parser("dataset"); dataset_commands = dataset.add_subparsers(dest="dataset_command", required=True)
     validate = dataset_commands.add_parser("validate"); validate.add_argument("--cases", type=Path, required=True); validate.add_argument("--output", type=Path); validate.set_defaults(handler=validate_dataset)
-    collect_parser = commands.add_parser("collect"); collect_parser.add_argument("--cases", type=Path, required=True); collect_parser.add_argument("--api-base", default="http://localhost:8080"); collect_parser.add_argument("--out", type=Path, required=True); collect_parser.add_argument("--strategy", default="HYBRID"); collect_parser.add_argument("--role", default="admin"); collect_parser.add_argument("--limit", type=int); collect_parser.add_argument("--profile", default="smoke"); collect_parser.add_argument("--seed", type=int, default=17); collect_parser.set_defaults(handler=collect)
+    collect_parser = commands.add_parser("collect"); collect_parser.add_argument("--cases", type=Path, required=True); collect_parser.add_argument("--api-base", default="http://localhost:8080"); collect_parser.add_argument("--out", type=Path, required=True); collect_parser.add_argument("--strategy", default="HYBRID"); collect_parser.add_argument("--role", default="admin"); collect_parser.add_argument("--limit", type=int); collect_parser.add_argument("--profile", default="smoke"); collect_parser.add_argument("--scope-manifest", type=Path); collect_parser.add_argument("--seed", type=int, default=17); collect_parser.set_defaults(handler=collect)
     retrieval_parser = commands.add_parser("score"); score_commands = retrieval_parser.add_subparsers(dest="score_command", required=True)
     retrieval = score_commands.add_parser("retrieval"); retrieval.add_argument("--run", type=Path, required=True); retrieval.add_argument("--cases", type=Path); retrieval.set_defaults(handler=score_retrieval_command)
     generation = score_commands.add_parser("generation"); generation.add_argument("--run", type=Path, required=True); generation.add_argument("--cases", type=Path); generation.add_argument("--judge", choices=["none", "deepeval"], default="none"); generation.add_argument("--judge-model"); generation.add_argument("--threshold", type=float, default=0.9); generation.set_defaults(handler=score_generation_command)

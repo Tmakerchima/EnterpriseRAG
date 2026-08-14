@@ -22,7 +22,10 @@ def parse_sse(text: str) -> list[SseMessage]:
             if line.startswith("event:"):
                 event = line[6:].strip()
             elif line.startswith("data:"):
-                data.append(line[5:].lstrip())
+                # Preserve the bytes after ``data:``. The deployed legacy
+                # backend writes tokens as ``data:<token>``; therefore a first
+                # space is answer content, not an SSE separator.
+                data.append(line[5:])
         if data:
             messages.append(SseMessage(event, "\n".join(data)))
     return messages
@@ -31,12 +34,13 @@ def parse_sse(text: str) -> list[SseMessage]:
 def decode(message: SseMessage) -> tuple[str, dict[str, object] | str]:
     """Decode v1 typed events and the legacy marker payloads."""
     data = message.data
+    structured_data = data.removeprefix(" ")
     legacy_markers = {"@@SOURCES@@": "sources", "@@METRICS@@": "metrics", "@@ERROR@@": "error"}
     for marker, event in legacy_markers.items():
-        if data.startswith(marker):
-            return event, json.loads(data[len(marker):])
+        if structured_data.startswith(marker):
+            return event, json.loads(structured_data[len(marker):])
     try:
-        payload = json.loads(data)
+        payload = json.loads(structured_data)
     except json.JSONDecodeError:
         return message.event, data
     if isinstance(payload, dict):

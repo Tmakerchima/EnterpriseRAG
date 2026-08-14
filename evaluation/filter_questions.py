@@ -5,14 +5,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import zipfile
 from pathlib import Path
+
+DSID_RE = re.compile(r"^(dsid_[^_]+)")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--questions", type=Path, required=True)
-    parser.add_argument("--document-ids", type=Path, required=True,
-                        help="一行一个 external_id，或包含 external_id 字段的 JSON/JSONL 文件")
+    documents = parser.add_mutually_exclusive_group(required=True)
+    documents.add_argument("--document-ids", type=Path,
+                           help="一行一个 external_id，或包含 external_id 字段的 JSON/JSONL 文件")
+    documents.add_argument("--document-archive", type=Path,
+                           help="官方 source slice ZIP；只读取文件名，不解压文档内容")
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args()
 
@@ -39,6 +46,19 @@ def load_document_ids(path: Path) -> set[str]:
     return ids
 
 
+def load_archive_document_ids(path: Path) -> set[str]:
+    """从官方 slice 的稳定文件名提取 external_id，不读取文档正文。"""
+    ids: set[str] = set()
+    with zipfile.ZipFile(path) as archive:
+        for member in archive.infolist():
+            if member.is_dir() or not member.filename.lower().endswith(".txt"):
+                continue
+            match = DSID_RE.match(Path(member.filename).stem)
+            if match:
+                ids.add(match.group(1))
+    return ids
+
+
 def classify(question: dict, document_ids: set[str]) -> str:
     expected = {str(value) for value in question.get("expected_doc_ids", [])}
     if not expected:
@@ -53,7 +73,8 @@ def classify(question: dict, document_ids: set[str]) -> str:
 
 def main() -> int:
     args = parse_args()
-    document_ids = load_document_ids(args.document_ids)
+    document_ids = (load_archive_document_ids(args.document_archive)
+                    if args.document_archive else load_document_ids(args.document_ids))
     groups = {"fully_supported": [], "partially_supported": [], "unsupported": []}
     with args.questions.open(encoding="utf-8") as stream:
         for line in stream:
@@ -74,6 +95,7 @@ def main() -> int:
         "fully_supported": len(groups["fully_supported"]),
         "partially_supported": len(groups["partially_supported"]),
         "unsupported": len(groups["unsupported"]),
+        "coverage_policy": "fully_supported_only",
         "outputs": {name: str(args.output_dir / f"{name}.jsonl") for name in groups},
     }
     (args.output_dir / "manifest.json").write_text(
