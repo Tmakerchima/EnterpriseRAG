@@ -48,6 +48,6 @@ python -m enterprise_rag_eval report --run reports/<run-id>
 
 ## What is measured
 
-确定性报告包含 corpus coverage、HitRate/Recall/Precision/MRR/nDCG/MAP、gold-in-candidates、gold-in-final-context、答案 exact/token-F1/fact coverage、citation schema、拒答和运行错误。比例指标提供 Wilson 95% CI；分层聚合使用 case count，安全门禁单独判断。DeepEval 是 optional primary judge adapter，没有 key 时结果为 `NOT_EXECUTED`，不是 0 分。
+确定性报告包含 corpus coverage、HitRate/Recall/Precision/MRR/nDCG/MAP、gold-in-candidates、gold-in-final-context、答案 exact/token-F1/逐字事实覆盖、citation schema、拒答和运行错误。语义 Fact coverage 没有 LLM Judge 或人工复核时为 `NOT_EXECUTED`；已召回黄金证据但尚未语义判定的 case 为 `NEEDS_REVIEW`，不会被误报成失败。比例指标提供 Wilson 95% CI；分层聚合使用 case count，安全门禁单独判断。DeepEval 是 optional primary judge adapter，没有 key 时结果为 `NOT_EXECUTED`，不是 0 分。
 
 详细设计、阈值、隐私边界、监控面板和面试口径见 `docs/`。真实 benchmark、真实 judge、数据库 integration 和线上 SLO 在本工作区没有执行，除非相应外部依赖明确配置。

@@ -32,10 +32,12 @@ const copy = computed(() => props.locale === 'zh' ? {
   synthetic: '当前是合成 smoke fixture，仅用于验证评分链路，不代表真实 benchmark。',
   local: '本地导入',
   published: '已发布结果',
-  caseSuccess: '严格 Case Success',
+  caseSuccess: 'Case Success Rate',
+  evidenceReadyRate: '证据就绪率',
   eligible: '有效 cases',
-  successful: '成功 cases',
-  excluded: '排除 cases',
+  evidenceReady: '证据就绪',
+  needsFix: '需修复',
+  pendingReview: '待语义评审',
   confidence: 'Wilson 95% CI',
   releaseGate: '发布门禁',
   incomplete: '指标未完整',
@@ -52,10 +54,11 @@ const copy = computed(() => props.locale === 'zh' ? {
   cases: 'Case 明细',
   caseId: 'Case ID',
   result: '结果',
-  reason: '失败原因',
+  reason: '判定依据',
   noReason: '全部必要条件通过',
   pass: '通过',
   fail: '失败',
+  review: '待评审',
   notMeasured: '未测量',
   noCases: '当前报告没有 case 级明细。',
   methodology: '评分由 Python evaluator 计算；页面只负责读取和展示，不会在浏览器里伪造或重新平均指标。',
@@ -69,7 +72,7 @@ const copy = computed(() => props.locale === 'zh' ? {
   fallback: 'Fallback 率',
   liveScope: 'LIVE BENCHMARK SLICE',
   judgePending: '语义裁判未执行',
-  judgePendingDetail: '当前 Fact coverage 与 Case Success 使用严格词面规则；它们适合回归对比，但不能替代人工或 LLM 对答案语义正确性的判断。',
+  judgePendingDetail: '措辞不同不再被误判为失败：召回黄金证据的回答会标记为“待评审”，只有 LLM Judge 或人工复核后才能得到语义 Fact coverage 与最终 Case Success。',
 } : {
   kicker: 'EVALUATION SCORECARD',
   title: 'Evaluation scorecard',
@@ -81,10 +84,12 @@ const copy = computed(() => props.locale === 'zh' ? {
   synthetic: 'This is a synthetic smoke fixture for validating the scoring path, not a benchmark result.',
   local: 'Local import',
   published: 'Published result',
-  caseSuccess: 'Strict Case Success',
+  caseSuccess: 'Case Success Rate',
+  evidenceReadyRate: 'Evidence-ready rate',
   eligible: 'eligible cases',
-  successful: 'successful cases',
-  excluded: 'excluded cases',
+  evidenceReady: 'evidence ready',
+  needsFix: 'needs fixes',
+  pendingReview: 'semantic review pending',
   confidence: 'Wilson 95% CI',
   releaseGate: 'Release gate',
   incomplete: 'Metrics incomplete',
@@ -101,10 +106,11 @@ const copy = computed(() => props.locale === 'zh' ? {
   cases: 'Case details',
   caseId: 'Case ID',
   result: 'Result',
-  reason: 'Failure reason',
+  reason: 'Assessment basis',
   noReason: 'All required conditions passed',
   pass: 'Pass',
   fail: 'Fail',
+  review: 'Needs review',
   notMeasured: 'Not measured',
   noCases: 'This report does not contain case-level details.',
   methodology: 'Scores are computed by the Python evaluator. The page reads and presents them without inventing or re-averaging metrics in the browser.',
@@ -118,7 +124,7 @@ const copy = computed(() => props.locale === 'zh' ? {
   fallback: 'Fallback rate',
   liveScope: 'LIVE BENCHMARK SLICE',
   judgePending: 'Semantic judge not executed',
-  judgePendingDetail: 'Fact coverage and Case Success currently use strict lexical rules. They are useful for regression, but do not replace human or LLM judging of semantic correctness.',
+  judgePendingDetail: 'Paraphrases are no longer mislabeled as failures. Answers with gold evidence are marked Needs review until an LLM judge or human review supplies semantic Fact coverage and final Case Success.',
 })
 
 const reportUrl = (import.meta.env.VITE_EVALUATION_REPORT_URL || '/evaluation/latest.json').trim()
@@ -129,7 +135,8 @@ const security = computed(() => report.value?.layers?.security)
 const performance = computed(() => report.value?.layers?.performance)
 const scope = computed(() => report.value?.manifest?.scope)
 const target = computed(() => report.value?.manifest?.target)
-const successRate = computed(() => success.value?.success_rate ?? null)
+const primaryRate = computed(() => success.value?.success_rate ?? success.value?.evidence_ready_rate ?? null)
+const primaryLabel = computed(() => success.value?.success_rate != null ? copy.value.caseSuccess : copy.value.evidenceReadyRate)
 const successCi = computed(() => success.value?.ci95 ?? null)
 const judgeResult = computed(() => generation.value?.judge?.results?.find((item) => item.metric === 'faithfulness' && item.status === 'MEASURED'))
 const scopeSummary = computed(() => {
@@ -150,7 +157,7 @@ const retrievalScores = computed<ScoreMetric[]>(() => [
 ])
 
 const generationScores = computed<ScoreMetric[]>(() => [
-  { key: 'facts', label: 'Fact coverage', helper: props.locale === 'zh' ? '标准化后的完整事实句覆盖（严格词面）' : 'normalized full-fact containment (strict lexical)', metric: generation.value?.fact_coverage },
+  { key: 'facts', label: 'Fact coverage', helper: props.locale === 'zh' ? '需要 LLM Judge 或人工判断语义事实是否完整' : 'requires an LLM judge or human semantic review', metric: generation.value?.fact_coverage },
   { key: 'token', label: 'Token F1', helper: props.locale === 'zh' ? '与黄金回答的词元重叠，不等同于语义正确' : 'token overlap with gold; not semantic correctness', metric: generation.value?.token_f1 },
   { key: 'exact', label: 'Exact match', helper: props.locale === 'zh' ? '全文标准化后完全一致；生成式回答通常很低' : 'full normalized equality; usually low for generated prose', metric: generation.value?.exact_match },
   { key: 'faith', label: 'Faithfulness', helper: judgeResult.value?.reason || (props.locale === 'zh' ? '可选 DeepEval 语义裁判' : 'optional DeepEval semantic judge'), metric: judgeResult.value ? { value: judgeResult.value.score } : undefined, threshold: judgeResult.value?.threshold ?? 0.90, direction: 'min' },
@@ -169,8 +176,35 @@ const releaseGate = computed<'PASS' | 'FAIL' | 'INCOMPLETE'>(() => {
 })
 
 const scoreRingStyle = computed(() => ({
-  '--score': `${Math.round((successRate.value ?? 0) * 100) * 3.6}deg`,
+  '--score': `${Math.round((primaryRate.value ?? 0) * 100) * 3.6}deg`,
 } as Record<string, string>))
+
+function caseOutcome(item: { success: boolean | null, outcome?: string }): 'pass' | 'fail' | 'review' {
+  if (item.outcome === 'NEEDS_REVIEW' || item.success == null) return 'review'
+  return item.success ? 'pass' : 'fail'
+}
+
+function caseOutcomeLabel(item: { success: boolean | null, outcome?: string }): string {
+  const outcome = caseOutcome(item)
+  return outcome === 'pass' ? copy.value.pass : outcome === 'fail' ? copy.value.fail : copy.value.review
+}
+
+function reasonLabel(reason: string): string {
+  const labels = props.locale === 'zh' ? {
+    REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: '黄金证据未进入最终上下文',
+    SEMANTIC_FACT_REVIEW_REQUIRED: '已召回证据，语义正确性待评审',
+    PRODUCT_ERROR: '产品请求错误',
+    SECURITY_VIOLATION: '安全策略违规',
+    ABSTENTION_FAILURE: '应拒答但未拒答',
+  } : {
+    REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: 'Gold evidence missing from final context',
+    SEMANTIC_FACT_REVIEW_REQUIRED: 'Evidence retrieved; semantic correctness awaits review',
+    PRODUCT_ERROR: 'Product request error',
+    SECURITY_VIOLATION: 'Security policy violation',
+    ABSTENTION_FAILURE: 'Expected abstention was not observed',
+  }
+  return labels[reason as keyof typeof labels] || reason
+}
 
 function metricGate(item: ScoreMetric): GateState {
   const value = item.metric?.value
@@ -273,10 +307,10 @@ onMounted(loadLatest)
 
       <div class="score-summary">
         <article class="primary-score card">
-          <div class="score-ring" :class="successRate == null ? 'unmeasured' : ''" :style="scoreRingStyle">
+          <div class="score-ring" :class="primaryRate == null ? 'unmeasured' : ''" :style="scoreRingStyle">
             <div>
-              <strong>{{ formatPercent(successRate, 0) }}</strong>
-              <span>{{ copy.caseSuccess }}</span>
+              <strong>{{ formatPercent(primaryRate, 0) }}</strong>
+              <span>{{ primaryLabel }}</span>
             </div>
           </div>
           <div class="score-copy">
@@ -288,12 +322,12 @@ onMounted(loadLatest)
             </div>
             <div class="case-counts">
               <div><strong>{{ success?.eligible_cases ?? '—' }}</strong><span>{{ copy.eligible }}</span></div>
-              <div><strong>{{ success?.successful_cases ?? '—' }}</strong><span>{{ copy.successful }}</span></div>
-              <div><strong>{{ success?.excluded_cases ?? '—' }}</strong><span>{{ copy.excluded }}</span></div>
+              <div><strong>{{ success?.evidence_ready_cases ?? '—' }}</strong><span>{{ copy.evidenceReady }}</span></div>
+              <div><strong>{{ success?.failed_cases ?? '—' }}</strong><span>{{ copy.needsFix }}</span></div>
             </div>
             <p class="confidence-line">
-              {{ copy.confidence }} ·
-              {{ successCi ? `${formatPercent(successCi[0])} – ${formatPercent(successCi[1])}` : '—' }}
+              <template v-if="successCi">{{ copy.confidence }} · {{ formatPercent(successCi[0]) }} – {{ formatPercent(successCi[1]) }}</template>
+              <template v-else>{{ success?.pending_review_cases ?? 0 }} {{ copy.pendingReview }}</template>
             </p>
           </div>
         </article>
@@ -377,8 +411,8 @@ onMounted(loadLatest)
             <tbody>
               <tr v-for="item in success.cases" :key="item.case_id">
                 <td><code>{{ item.case_id }}</code></td>
-                <td><span :class="`case-result ${item.success ? 'pass' : 'fail'}`">{{ item.success ? copy.pass : copy.fail }}</span></td>
-                <td>{{ item.reasons.length ? item.reasons.join(' · ') : copy.noReason }}</td>
+                <td><span :class="`case-result ${caseOutcome(item)}`">{{ caseOutcomeLabel(item) }}</span></td>
+                <td>{{ item.reasons.length ? item.reasons.map(reasonLabel).join(' · ') : copy.noReason }}</td>
               </tr>
             </tbody>
           </table>
@@ -395,7 +429,7 @@ onMounted(loadLatest)
 .evaluation-dashboard { display: grid; gap: 18px; }
 .evaluation-heading { align-items: end; display: flex; gap: 32px; justify-content: space-between; margin-bottom: 18px; }
 .evaluation-heading h2 { font-size: clamp(34px, 5vw, 56px); }
-.evaluation-lede { color: #686158; line-height: 1.75; margin: 18px 0 0; max-width: 680px; }
+.evaluation-lede { color: #514a43; font-family: var(--font-editorial); font-size: 17px; line-height: 1.62; margin: 18px 0 0; max-width: 680px; }
 .evaluation-actions { display: flex; flex: 0 0 auto; gap: 9px; }
 .evaluation-actions button { border-radius: 1px; font-size: 11px; font-weight: 700; min-height: 41px; padding: 0 14px; }
 .primary-action { background: #c9654b; border: 1px solid #c9654b; color: #fffaf4; }
@@ -405,7 +439,7 @@ onMounted(loadLatest)
 .evaluation-empty { color: #817a70; min-height: 240px; padding: 62px; text-align: center; }
 .evaluation-empty strong { color: #a1432e; font: 700 11px/1 ui-monospace, monospace; letter-spacing: .12em; }
 .evaluation-empty p { line-height: 1.7; margin: 18px auto 0; max-width: 520px; }
-.fixture-warning { align-items: center; background: #fff4df; border: 1px solid #dfbe7c; color: #745b2e; display: flex; font-size: 12px; gap: 18px; padding: 14px 17px; }
+.fixture-warning { align-items: center; background: #fff4df; border: 1px solid #dfbe7c; color: #745b2e; display: flex; font-family: var(--font-editorial); font-size: 13px; gap: 18px; line-height: 1.5; padding: 14px 17px; }
 .fixture-warning strong { flex: 0 0 auto; font: 700 10px/1.4 ui-monospace, monospace; letter-spacing: .07em; }
 .fixture-warning.live-scope { background: #edf5ef; border-color: #a9c7b2; color: #35634a; }
 .fixture-warning.judge-note { background: #f3eee6; border-color: #d5cabd; color: #6d6256; }
@@ -415,7 +449,7 @@ onMounted(loadLatest)
 .score-ring { --score: 0deg; align-items: center; aspect-ratio: 1; background: conic-gradient(#c9654b var(--score), #e6ded4 0); border-radius: 50%; display: flex; justify-content: center; padding: 12px; position: relative; }
 .score-ring::before { background: #fbf9f5; border-radius: 50%; content: ''; height: 100%; width: 100%; }
 .score-ring > div { align-items: center; display: flex; flex-direction: column; position: absolute; text-align: center; width: 125px; }
-.score-ring strong { color: #282521; font-family: Georgia, serif; font-size: 42px; font-weight: 400; letter-spacing: -.05em; }
+.score-ring strong { color: #282521; font-family: var(--font-editorial); font-size: 42px; font-weight: 500; letter-spacing: -.05em; }
 .score-ring span { color: #817a70; font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-top: 5px; text-transform: uppercase; }
 .score-ring.unmeasured { background: conic-gradient(#d8d1c7 360deg, #d8d1c7 0); }
 .score-topline { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; }
@@ -423,6 +457,7 @@ onMounted(loadLatest)
 .gate-pill, .metric-gate, .case-result { border: 1px solid; display: inline-flex; font-size: 9px; font-weight: 800; letter-spacing: .07em; padding: 5px 7px; text-transform: uppercase; }
 .gate-pill.pass, .metric-gate.pass, .case-result.pass { background: #e9f3ed; border-color: #9ec2ac; color: #3b7658; }
 .gate-pill.fail, .metric-gate.fail, .case-result.fail { background: #fff0eb; border-color: #dfa18f; color: #a1432e; }
+.case-result.review { background: #fff4df; border-color: #dfbe7c; color: #745b2e; }
 .gate-pill.incomplete, .metric-gate.not_measured { background: #f3eee6; border-color: #d5cabd; color: #817568; }
 .case-counts { display: grid; gap: 1px; grid-template-columns: repeat(3, 1fr); margin-top: 24px; }
 .case-counts div { background: #f1ece4; padding: 13px 12px; }
@@ -439,7 +474,7 @@ onMounted(loadLatest)
 .metric-sections, .operational-grid { display: grid; gap: 18px; grid-template-columns: repeat(2, 1fr); }
 .metric-section-title { align-items: baseline; border-bottom: 1px solid #e3ddd4; display: flex; gap: 10px; margin-bottom: 22px; padding-bottom: 14px; }
 .metric-section-title > span { color: #b55942; font: 700 10px/1 ui-monospace, monospace; }
-.metric-section-title h3 { color: #39342f; font-family: Georgia, serif; font-size: 22px; font-weight: 400; margin: 0; }
+.metric-section-title h3 { color: #39342f; font-family: var(--font-editorial); font-size: 23px; font-weight: 500; margin: 0; }
 .metric-section-title small { color: #91887c; font-size: 10px; margin-left: auto; }
 .score-list { display: grid; gap: 22px; }
 .score-row-heading { align-items: start; display: flex; gap: 18px; justify-content: space-between; }

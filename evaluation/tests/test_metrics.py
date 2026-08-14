@@ -45,4 +45,31 @@ def test_generation_report_keeps_case_level_success_reasons() -> None:
     })
     case_result = result["case_success"]["cases"][0]
     assert case_result["success"] is False
-    assert case_result["reasons"] == ["REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT", "FACT_COVERAGE_BELOW_REQUIRED"]
+    assert case_result["outcome"] == "FAIL"
+    assert case_result["reasons"] == ["REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"]
+
+
+def test_paraphrased_fact_requires_semantic_review_instead_of_false_failure() -> None:
+    case = EvaluationCase(
+        case_id="paraphrase",
+        question="q",
+        answer_facts=("The default per-file limit is 10 MiB.",),
+        expected_document_ids=("doc-a",),
+    )
+    result = score_generation([case], {
+        "paraphrase": {
+            "answer": "Uploads allow 10 MiB for each file.",
+            "document_ids": ["doc-a"],
+            "final_document_ids": ["doc-a"],
+        },
+    })
+
+    case_result = result["case_success"]["cases"][0]
+    assert result["fact_coverage"]["status"] == "NOT_EXECUTED"
+    assert result["case_success"]["evidence_ready_rate"] == 1.0
+    assert case_result == {
+        "case_id": "paraphrase",
+        "success": None,
+        "outcome": "NEEDS_REVIEW",
+        "reasons": ["SEMANTIC_FACT_REVIEW_REQUIRED"],
+    }

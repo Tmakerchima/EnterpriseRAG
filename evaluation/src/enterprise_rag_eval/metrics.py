@@ -143,19 +143,29 @@ def score_generation(cases: list[EvaluationCase], predictions: dict[str, dict[st
             "case_id": case.case_id,
             "exact_match": float(bool(gold) and normalize_text(answer) == normalize_text(gold)),
             "token_f1": token_f1(answer, gold) if gold else None,
-            "fact_coverage": fact_coverage(answer, case.answer_facts),
+            # Exact normalized containment is a useful regression signal and a
+            # sufficient proof of coverage, but a zero cannot establish that a
+            # paraphrased answer missed the fact. Keep it explicitly lexical.
+            "verbatim_fact_coverage": fact_coverage(answer, case.answer_facts),
             "empty_answer": float(not answer.strip()),
             "citation_schema_valid": float(all(isinstance(item, str) and item for item in prediction.get("citations", []))),
             "error": bool(prediction.get("metrics", {}).get("error")),
         })
     result = {"status": "MEASURED" if rows else "NOT_EXECUTED", "eligible_cases": len(rows), "cases": rows}
-    for key in ("exact_match", "token_f1", "fact_coverage", "citation_schema_valid"):
+    for key in ("exact_match", "token_f1", "verbatim_fact_coverage", "citation_schema_valid"):
         result[key] = macro([row[key] for row in rows if row[key] is not None])
+    result["fact_coverage"] = {
+        "status": "NOT_EXECUTED",
+        "value": None,
+        "count": 0,
+        "ci95": None,
+        "reason": "semantic fact coverage requires an LLM judge or human review",
+    }
     result["case_success"] = score_success(cases, predictions)
     return result
 
 
-def case_success(case: EvaluationCase, prediction: dict[str, Any]) -> tuple[bool, list[str]]:
+def case_success(case: EvaluationCase, prediction: dict[str, Any]) -> tuple[bool | None, list[str]]:
     reasons: list[str] = []
     metrics = prediction.get("metrics", {})
     if metrics.get("error") or prediction.get("error"):
@@ -165,12 +175,16 @@ def case_success(case: EvaluationCase, prediction: dict[str, Any]) -> tuple[bool
     if case.answerability == "ANSWERABLE":
         if not set(case.expected_document_ids).intersection(prediction.get("final_document_ids", prediction.get("document_ids", []))):
             reasons.append("REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT")
-        if case.answer_facts and (fact_coverage(str(prediction.get("answer", "")), case.answer_facts) or 0) < 1:
-            reasons.append("FACT_COVERAGE_BELOW_REQUIRED")
     else:
         if not prediction.get("abstained", False):
             reasons.append("ABSTENTION_FAILURE")
-    return not reasons, reasons
+    if reasons:
+        return False, reasons
+    if case.answerability == "ANSWERABLE" and case.answer_facts:
+        lexical_coverage = fact_coverage(str(prediction.get("answer", "")), case.answer_facts)
+        if lexical_coverage != 1:
+            return None, ["SEMANTIC_FACT_REVIEW_REQUIRED"]
+    return True, []
 
 
 def score_success(cases: list[EvaluationCase], predictions: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -182,11 +196,26 @@ def score_success(cases: list[EvaluationCase], predictions: dict[str, dict[str, 
             excluded += 1
             continue
         passed, reasons = case_success(case, prediction)
-        rows.append({"case_id": case.case_id, "success": passed, "reasons": reasons})
-    successes = sum(row["success"] for row in rows)
-    return {"status": "MEASURED" if rows else "NOT_EXECUTED", "eligible_cases": len(rows), "successful_cases": successes,
-            "excluded_cases": excluded, "success_rate": successes / len(rows) if rows else None,
-            "ci95": wilson_interval(successes, len(rows)), "cases": rows}
+        outcome = "PASS" if passed is True else "FAIL" if passed is False else "NEEDS_REVIEW"
+        rows.append({"case_id": case.case_id, "success": passed, "outcome": outcome, "reasons": reasons})
+    successes = sum(row["success"] is True for row in rows)
+    failures = sum(row["success"] is False for row in rows)
+    pending = sum(row["success"] is None for row in rows)
+    evidence_ready = sum(row["success"] is not False for row in rows)
+    fully_resolved = bool(rows) and pending == 0
+    return {
+        "status": "MEASURED" if fully_resolved else "INCOMPLETE" if rows else "NOT_EXECUTED",
+        "eligible_cases": len(rows),
+        "successful_cases": successes,
+        "failed_cases": failures,
+        "pending_review_cases": pending,
+        "evidence_ready_cases": evidence_ready,
+        "evidence_ready_rate": evidence_ready / len(rows) if rows else None,
+        "excluded_cases": excluded,
+        "success_rate": successes / len(rows) if fully_resolved else None,
+        "ci95": wilson_interval(successes, len(rows)) if fully_resolved else None,
+        "cases": rows,
+    }
 
 
 def score_security(cases: list[EvaluationCase], predictions: dict[str, dict[str, Any]]) -> dict[str, Any]:

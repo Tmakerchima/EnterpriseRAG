@@ -10,188 +10,206 @@
         "cases": [
           {
             "case_id": "qst_0001",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0010",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0020",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0052",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0074",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0075",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0097",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0103",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0125",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0127",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0140",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0146",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0148",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0160",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0167",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0180",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0192",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0232",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0246",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0266",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0276",
+            "outcome": "FAIL",
             "reasons": [
-              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT",
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
             "success": false
           },
           {
             "case_id": "qst_0290",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0322",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           },
           {
             "case_id": "qst_0339",
+            "outcome": "NEEDS_REVIEW",
             "reasons": [
-              "FACT_COVERAGE_BELOW_REQUIRED"
+              "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": false
+            "success": null
           }
         ],
-        "ci95": [
-          1.3877787807814457e-17,
-          0.13797620467498017
-        ],
+        "ci95": null,
         "eligible_cases": 24,
+        "evidence_ready_cases": 17,
+        "evidence_ready_rate": 0.7083333333333334,
         "excluded_cases": 0,
-        "status": "MEASURED",
-        "success_rate": 0.0,
+        "failed_cases": 7,
+        "pending_review_cases": 17,
+        "status": "INCOMPLETE",
+        "success_rate": null,
         "successful_cases": 0
       },
       "cases": [
@@ -201,8 +219,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.2456140350877193
+          "token_f1": 0.2456140350877193,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0010",
@@ -210,8 +228,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.3684210526315789
+          "token_f1": 0.3684210526315789,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0020",
@@ -219,8 +237,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.2653061224489796
+          "token_f1": 0.2653061224489796,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0052",
@@ -228,8 +246,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.3018867924528302
+          "token_f1": 0.3018867924528302,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0074",
@@ -237,8 +255,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.20338983050847456
+          "token_f1": 0.20338983050847456,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0075",
@@ -246,8 +264,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.1267605633802817
+          "token_f1": 0.1267605633802817,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0097",
@@ -255,8 +273,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.3333333333333333
+          "token_f1": 0.3333333333333333,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0103",
@@ -264,8 +282,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.2040816326530612
+          "token_f1": 0.2040816326530612,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0125",
@@ -273,8 +291,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.07228915662650602
+          "token_f1": 0.07228915662650602,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0127",
@@ -282,8 +300,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.38016528925619836
+          "token_f1": 0.38016528925619836,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0140",
@@ -291,8 +309,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.0813953488372093
+          "token_f1": 0.0813953488372093,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0146",
@@ -300,8 +318,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.3190184049079755
+          "token_f1": 0.3190184049079755,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0148",
@@ -309,8 +327,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.15748031496062992
+          "token_f1": 0.15748031496062992,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0160",
@@ -318,8 +336,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.28758169934640526
+          "token_f1": 0.28758169934640526,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0167",
@@ -327,8 +345,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.3333333333333333
+          "token_f1": 0.3333333333333333,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0180",
@@ -336,8 +354,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.19148936170212763
+          "token_f1": 0.19148936170212763,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0192",
@@ -345,8 +363,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.26993865030674846
+          "token_f1": 0.26993865030674846,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0232",
@@ -354,8 +372,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.1797752808988764
+          "token_f1": 0.1797752808988764,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0246",
@@ -363,8 +381,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.10810810810810811
+          "token_f1": 0.10810810810810811,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0266",
@@ -372,8 +390,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.20740740740740743
+          "token_f1": 0.20740740740740743,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0276",
@@ -381,8 +399,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.16113744075829384
+          "token_f1": 0.16113744075829384,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0290",
@@ -390,8 +408,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.26666666666666666
+          "token_f1": 0.26666666666666666,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0322",
@@ -399,8 +417,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.2857142857142857
+          "token_f1": 0.2857142857142857,
+          "verbatim_fact_coverage": 0.0
         },
         {
           "case_id": "qst_0339",
@@ -408,8 +426,8 @@
           "empty_answer": 0.0,
           "error": false,
           "exact_match": 0.0,
-          "fact_coverage": 0.0,
-          "token_f1": 0.10218978102189781
+          "token_f1": 0.10218978102189781,
+          "verbatim_fact_coverage": 0.0
         }
       ],
       "citation_schema_valid": {
@@ -430,12 +448,11 @@
         "value": 0.0
       },
       "fact_coverage": {
-        "ci95": [
-          1.3877787807814457e-17,
-          0.13797620467498017
-        ],
-        "count": 24,
-        "value": 0.0
+        "ci95": null,
+        "count": 0,
+        "reason": "semantic fact coverage requires an LLM judge or human review",
+        "status": "NOT_EXECUTED",
+        "value": null
       },
       "judge": {
         "primary_framework": null,
@@ -736,6 +753,14 @@
         "ci95": null,
         "count": 24,
         "value": 0.227186828847872
+      },
+      "verbatim_fact_coverage": {
+        "ci95": [
+          1.3877787807814457e-17,
+          0.13797620467498017
+        ],
+        "count": 24,
+        "value": 0.0
       }
     },
     "performance": {

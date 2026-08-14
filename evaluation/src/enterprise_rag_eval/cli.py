@@ -254,7 +254,8 @@ def smoke(out_dir: Path | None = None) -> int:
     retrieval = score_retrieval(cases, predictions)
     generation = score_generation(cases, predictions)
     assert retrieval["ks"]["5"]["recall"]["value"] == 1.0
-    assert generation["fact_coverage"]["value"] == 1.0
+    assert generation["verbatim_fact_coverage"]["value"] == 1.0
+    assert generation["fact_coverage"]["status"] == "NOT_EXECUTED"
     assert case_success(cases[0], predictions["smoke-1"])[0]
     triage_result = triage_case(cases[0].to_dict(), {"candidate_document_ids": [], "coverage_status": "fully_supported"})
     assert triage_result.primary_cause == "RETRIEVAL_NO_RECALL"

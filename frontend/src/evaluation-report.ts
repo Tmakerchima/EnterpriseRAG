@@ -1,12 +1,15 @@
 export interface MetricValue {
+  status?: string
   value?: number | null
   count?: number
   ci95?: [number, number] | null
+  reason?: string | null
 }
 
 export interface CaseSuccessRow {
   case_id: string
-  success: boolean
+  success: boolean | null
+  outcome?: 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
   reasons: string[]
 }
 
@@ -54,11 +57,16 @@ export interface EvaluationReport {
       exact_match?: MetricValue
       token_f1?: MetricValue
       fact_coverage?: MetricValue
+      verbatim_fact_coverage?: MetricValue
       citation_schema_valid?: MetricValue
       case_success?: {
         status?: string
         eligible_cases?: number
         successful_cases?: number
+        failed_cases?: number
+        pending_review_cases?: number
+        evidence_ready_cases?: number
+        evidence_ready_rate?: number | null
         excluded_cases?: number
         success_rate?: number | null
         ci95?: [number, number] | null
