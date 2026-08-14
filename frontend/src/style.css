@@ -20,6 +20,9 @@ button { cursor: pointer; }
 .brand strong { font-size: 13px; letter-spacing: -.01em; }
 .brand small { color: #817a70; font-size: 11px; font-weight: 500; margin-top: 3px; }
 .topbar-actions { align-items: center; display: flex; gap: 24px; }
+.view-switch { align-items: center; border: 1px solid #d8d1c7; display: flex; padding: 2px; }
+.view-switch button { background: transparent; border: 0; color: #817a70; font-size: 10px; font-weight: 700; letter-spacing: .06em; padding: 7px 10px; text-transform: uppercase; }
+.view-switch button.active { background: #282521; color: #fffaf4; }
 .status, .live-pill, .eyebrow, .source-type, .request-id, .metric-footer, footer, .api-note { color: #817a70; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
 .status i, .live-pill i { background: #4d9270; border-radius: 50%; display: inline-block; height: 6px; margin-right: 7px; vertical-align: 1px; width: 6px; }
 .status.blocked, .live-pill.blocked { color: #a1432e; }
@@ -103,7 +106,8 @@ footer { border-top: 1px solid #d8d1c7; display: flex; justify-content: space-be
   .topbar, footer, .page-content { width: min(100% - 36px, 1120px); }
   .topbar, footer { padding-left: 0; padding-right: 0; }
   .status { display: none; }
-  .topbar-actions { gap: 0; }
+  .topbar-actions { gap: 12px; }
+  .view-switch button { padding: 7px 8px; }
   .page-content { padding: 54px 0 40px; }
   .hero { padding-bottom: 38px; }
   h1 { font-size: clamp(47px, 14vw, 70px); }

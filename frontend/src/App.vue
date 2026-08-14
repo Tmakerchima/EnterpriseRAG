@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import EvaluationDashboard from './components/EvaluationDashboard.vue'
 
 type Locale = 'zh' | 'en'
 type Role = 'public' | 'engineering' | 'finance' | 'hr' | 'admin'
 type Strategy = 'HYBRID' | 'VECTOR' | 'KEYWORD' | 'HYBRID_RERANK'
+type View = 'query' | 'evaluation'
 
 interface Source {
   source_type: string
@@ -53,6 +55,7 @@ interface Health {
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const locale = ref<Locale>('zh')
+const activeView = ref<View>(window.location.hash === '#evaluation' ? 'evaluation' : 'query')
 const question = ref('What are the default limits for multipart uploads?')
 const role = ref<Role>('engineering')
 const strategy = ref<Strategy>('HYBRID')
@@ -70,6 +73,8 @@ const copy = {
   zh: {
     brand: '企业知识库',
     language: '语言',
+    queryView: '问答',
+    evaluationView: '评测',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: '让每一个答案，\n都有证据。',
     lede: '面向企业内部知识的可审计 RAG 工作台。回答、来源、权限上下文、阶段耗时和反馈通过同一个 request_id 串联。',
@@ -140,6 +145,8 @@ const copy = {
   en: {
     brand: 'Enterprise knowledge',
     language: 'Language',
+    queryView: 'Query',
+    evaluationView: 'Evaluation',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: 'Every answer\nwith evidence.',
     lede: 'An auditable EnterpriseRAG workspace. Answers, sources, authorization context, stage timings and feedback share one request_id.',
@@ -244,6 +251,12 @@ const statusKey = computed(() => {
 const queryReady = computed(() => health.value?.status === 'READY' || health.value?.status === 'DEGRADED')
 const statusTone = computed(() => queryReady.value ? 'ready' : 'blocked')
 const statusLabel = computed(() => t(statusKey.value as CopyKey))
+
+function switchView(view: View) {
+  activeView.value = view
+  window.history.replaceState(null, '', view === 'evaluation' ? '#evaluation' : window.location.pathname)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 async function refreshHealth() {
   if (!apiBase) return
@@ -391,6 +404,10 @@ async function sendFeedback(rating: 'positive' | 'negative') {
         </span>
       </a>
       <div class="topbar-actions">
+        <nav class="view-switch" aria-label="Workspace view">
+          <button type="button" :class="{ active: activeView === 'query' }" @click="switchView('query')">{{ t('queryView') }}</button>
+          <button type="button" :class="{ active: activeView === 'evaluation' }" @click="switchView('evaluation')">{{ t('evaluationView') }}</button>
+        </nav>
         <span class="status" :class="statusTone"><i /> {{ health?.status || t('statusUnavailable') }} · {{ statusLabel }}</span>
         <label class="language-control">
           <span>{{ t('language') }}</span>
@@ -410,6 +427,7 @@ async function sendFeedback(rating: 'positive' | 'negative') {
         <p class="architecture-line">{{ t('architecture') }}</p>
       </section>
 
+      <template v-if="activeView === 'query'">
       <section class="corpus-card card">
         <div class="section-heading compact">
           <div>
@@ -547,6 +565,9 @@ async function sendFeedback(rating: 'positive' | 'negative') {
           </div>
         </div>
       </section>
+      </template>
+
+      <EvaluationDashboard v-else :locale="locale" />
     </main>
 
     <footer>

@@ -30,8 +30,15 @@ jobs:
         working-directory: evaluation
       - run: python -m ruff check src tests
         working-directory: evaluation
-      - run: python -m enterprise_rag_eval smoke
+      - run: python -m enterprise_rag_eval smoke --out reports/ci-smoke
         working-directory: evaluation
+      - run: python -m enterprise_rag_eval report --run reports/ci-smoke --frontend-out reports/ci-smoke/frontend-latest.json
+        working-directory: evaluation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-evaluation-scorecard
+          path: evaluation/reports/ci-smoke/
+          if-no-files-found: error
 
   frontend:
     runs-on: ubuntu-latest

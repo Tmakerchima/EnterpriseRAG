@@ -208,7 +208,15 @@ def triage(args: argparse.Namespace) -> int:
     return 0
 
 
-def smoke() -> int:
+def report_command(args: argparse.Namespace) -> int:
+    report = write_report(args.run)
+    if args.frontend_out:
+        _json(args.frontend_out, report)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
+def smoke(out_dir: Path | None = None) -> int:
     fixture = Path(__file__).parents[2] / "fixtures" / "smoke-cases.jsonl"
     cases = load_cases(fixture)
     predictions = {
@@ -222,6 +230,49 @@ def smoke() -> int:
     assert case_success(cases[0], predictions["smoke-1"])[0]
     triage_result = triage_case(cases[0].to_dict(), {"candidate_document_ids": [], "coverage_status": "fully_supported"})
     assert triage_result.primary_cause == "RETRIEVAL_NO_RECALL"
+    if out_dir:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "manifest_version": "enterprise-rag.run.v1",
+            "status": "MEASURED",
+            "profile": "smoke",
+            "run_id": out_dir.name,
+            "dataset_hash": sha256_file(fixture),
+            "dataset_version": sorted({case.dataset_version for case in cases}),
+            "config_hash": canonical_hash({"fixture": "synthetic-smoke", "strategy": "HYBRID"}),
+            "strategy": "HYBRID",
+            "seed": 17,
+            "created_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        }
+        traces = [
+            {"trace_schema_version": "enterprise-rag.trace.v1", "case_id": "smoke-1",
+             "request_id": "synthetic-smoke-1", "trace_id": "synthetic-smoke-trace-1",
+             "candidate_document_ids": ["doc-upload"], "final_document_ids": ["doc-upload"],
+             "judge_status": "NOT_EXECUTED", "gold_valid": True, "coverage_status": "fully_supported"},
+            {"trace_schema_version": "enterprise-rag.trace.v1", "case_id": "smoke-2",
+             "request_id": "synthetic-smoke-2", "trace_id": "synthetic-smoke-trace-2",
+             "candidate_document_ids": [], "final_document_ids": [], "judge_status": "NOT_EXECUTED",
+             "gold_valid": True, "coverage_status": "not_applicable"},
+        ]
+        judge = NotExecutedJudgeAdapter(reason="synthetic smoke does not invoke a paid judge")
+        generation["judge"] = {
+            "status": "NOT_EXECUTED",
+            "primary_framework": None,
+            "results": [judge.score(question=case.question,
+                                     answer=str(predictions[case.case_id].get("answer", "")),
+                                     contexts=list(predictions[case.case_id].get("contexts", [])),
+                                     expected=case.gold_answer, case_id=case.case_id).to_dict() for case in cases],
+        }
+        write_jsonl(out_dir / "cases.jsonl", [case.to_dict() for case in cases])
+        write_jsonl(out_dir / "predictions.jsonl", [{"case_id": case_id, **prediction} for case_id, prediction in predictions.items()])
+        write_jsonl(out_dir / "traces.jsonl", traces)
+        _json(out_dir / "run-manifest.json", manifest)
+        _json(out_dir / "metrics.json", retrieval)
+        _json(out_dir / "generation-metrics.json", generation)
+        _json(out_dir / "corpus-metrics.json", score_corpus([]))
+        _json(out_dir / "security-metrics.json", score_security(cases, predictions))
+        _json(out_dir / "performance-metrics.json", score_performance(predictions))
+        write_report(out_dir)
     print(json.dumps({"status": "MEASURED", "fixture": "SYNTHETIC_FIXTURE", "retrieval": retrieval["ks"]["5"], "generation": generation}, ensure_ascii=False, indent=2))
     return 0
 
@@ -240,8 +291,8 @@ def parser() -> argparse.ArgumentParser:
     performance = score_commands.add_parser("performance"); performance.add_argument("--run", type=Path, required=True); performance.set_defaults(handler=score_performance_command)
     compare_parser = commands.add_parser("compare"); compare_parser.add_argument("--baseline", type=Path, required=True); compare_parser.add_argument("--candidate", type=Path, required=True); compare_parser.add_argument("--out", type=Path, required=True); compare_parser.set_defaults(handler=compare)
     triage_parser = commands.add_parser("triage"); triage_parser.add_argument("--run", type=Path, required=True); triage_parser.set_defaults(handler=triage)
-    report_parser = commands.add_parser("report"); report_parser.add_argument("--run", type=Path, required=True); report_parser.set_defaults(handler=lambda args: (print(json.dumps(write_report(args.run), ensure_ascii=False, indent=2)) or 0))
-    smoke_parser = commands.add_parser("smoke"); smoke_parser.set_defaults(handler=lambda args: smoke())
+    report_parser = commands.add_parser("report"); report_parser.add_argument("--run", type=Path, required=True); report_parser.add_argument("--frontend-out", type=Path); report_parser.set_defaults(handler=report_command)
+    smoke_parser = commands.add_parser("smoke"); smoke_parser.add_argument("--out", type=Path); smoke_parser.set_defaults(handler=lambda args: smoke(args.out))
     return root
 
 

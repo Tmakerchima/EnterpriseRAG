@@ -186,7 +186,7 @@ def score_success(cases: list[EvaluationCase], predictions: dict[str, dict[str, 
     successes = sum(row["success"] for row in rows)
     return {"status": "MEASURED" if rows else "NOT_EXECUTED", "eligible_cases": len(rows), "successful_cases": successes,
             "excluded_cases": excluded, "success_rate": successes / len(rows) if rows else None,
-            "ci95": wilson_interval(successes, len(rows))}
+            "ci95": wilson_interval(successes, len(rows)), "cases": rows}
 
 
 def score_security(cases: list[EvaluationCase], predictions: dict[str, dict[str, Any]]) -> dict[str, Any]:

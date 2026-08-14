@@ -4,6 +4,7 @@ from enterprise_rag_eval.metrics import (
     ndcg,
     precision,
     recall,
+    score_generation,
     score_retrieval,
     wilson_interval,
 )
@@ -30,3 +31,18 @@ def test_no_gold_is_excluded_from_retrieval_denominator() -> None:
 
 def test_wilson_interval_is_deterministic() -> None:
     assert wilson_interval(8, 10) == wilson_interval(8, 10)
+
+
+def test_generation_report_keeps_case_level_success_reasons() -> None:
+    case = EvaluationCase(
+        case_id="answerable",
+        question="q",
+        answer_facts=("required fact",),
+        expected_document_ids=("doc-a",),
+    )
+    result = score_generation([case], {
+        "answerable": {"answer": "wrong", "document_ids": [], "final_document_ids": []},
+    })
+    case_result = result["case_success"]["cases"][0]
+    assert case_result["success"] is False
+    assert case_result["reasons"] == ["REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT", "FACT_COVERAGE_BELOW_REQUIRED"]

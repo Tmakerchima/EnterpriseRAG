@@ -1,0 +1,565 @@
+{
+  "comparison": {},
+  "layers": {
+    "corpus": {
+      "reason": "no ingestion rows supplied",
+      "status": "NOT_EXECUTED"
+    },
+    "generation": {
+      "case_success": {
+        "cases": [
+          {
+            "case_id": "smoke-1",
+            "reasons": [],
+            "success": true
+          },
+          {
+            "case_id": "smoke-2",
+            "reasons": [],
+            "success": true
+          }
+        ],
+        "ci95": [
+          0.34238022750665303,
+          1.0
+        ],
+        "eligible_cases": 2,
+        "excluded_cases": 0,
+        "status": "MEASURED",
+        "success_rate": 1.0,
+        "successful_cases": 2
+      },
+      "cases": [
+        {
+          "case_id": "smoke-1",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 1.0,
+          "fact_coverage": 1.0,
+          "token_f1": 1.0
+        },
+        {
+          "case_id": "smoke-2",
+          "citation_schema_valid": 1.0,
+          "empty_answer": 0.0,
+          "error": false,
+          "exact_match": 0.0,
+          "fact_coverage": null,
+          "token_f1": null
+        }
+      ],
+      "citation_schema_valid": {
+        "ci95": [
+          0.34238022750665303,
+          1.0
+        ],
+        "count": 2,
+        "value": 1.0
+      },
+      "eligible_cases": 2,
+      "exact_match": {
+        "ci95": [
+          0.09453120573423074,
+          0.9054687942657693
+        ],
+        "count": 2,
+        "value": 0.5
+      },
+      "fact_coverage": {
+        "ci95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "count": 1,
+        "value": 1.0
+      },
+      "judge": {
+        "primary_framework": null,
+        "results": [
+          {
+            "cache_key": "f6bd15013af2480b9fc0b8bd7fb3a5f7e17383a17450746e4947c05e9908f742",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "synthetic smoke does not invoke a paid judge",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          },
+          {
+            "cache_key": "55158ec1e4170203384a31f17e563a8faf671661ab298a88cd4bd9f2aba6ab66",
+            "framework_version": null,
+            "judge_model": null,
+            "metric": "faithfulness",
+            "passed": null,
+            "reason": "synthetic smoke does not invoke a paid judge",
+            "rubric_version": "rag.v1",
+            "score": null,
+            "status": "NOT_EXECUTED",
+            "threshold": null
+          }
+        ],
+        "status": "NOT_EXECUTED"
+      },
+      "status": "MEASURED",
+      "token_f1": {
+        "ci95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "count": 1,
+        "value": 1.0
+      }
+    },
+    "performance": {
+      "request_count": 2,
+      "status": "NOT_EXECUTED"
+    },
+    "retrieval": {
+      "eligible_cases": 1,
+      "excluded": {
+        "missing_prediction": 0,
+        "no_gold": 1
+      },
+      "ks": {
+        "1": {
+          "hit_rate": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "map": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "mrr": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "ndcg": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "precision": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          }
+        },
+        "10": {
+          "hit_rate": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "map": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "mrr": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "ndcg": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "precision": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          }
+        },
+        "3": {
+          "hit_rate": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "map": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "mrr": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "ndcg": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "precision": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          }
+        },
+        "5": {
+          "hit_rate": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "map": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "mrr": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "ndcg": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "precision": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          },
+          "recall": {
+            "ci95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "count": 1,
+            "value": 1.0
+          }
+        }
+      },
+      "status": "MEASURED"
+    },
+    "security": {
+      "cases": 2,
+      "forbidden_retrieval_count": 0,
+      "hard_gate": "PASS",
+      "prompt_injection_compliance_count": 0,
+      "status": "MEASURED"
+    }
+  },
+  "manifest": {
+    "config_hash": "2c9f694c12d209f49fc8865459105969259ddd1eedb0b68383c812070d1b8397",
+    "created_at": "2026-08-14T14:32:44.911598+00:00",
+    "dataset_hash": "33a196f1298deafe00dffacdf0128f1a2a121fc51306d17a035f4ec21ee0c2d6",
+    "dataset_version": [
+      "smoke.v1"
+    ],
+    "manifest_version": "enterprise-rag.run.v1",
+    "profile": "smoke",
+    "run_id": "frontend-smoke",
+    "seed": 17,
+    "status": "MEASURED",
+    "strategy": "HYBRID"
+  },
+  "metrics": {
+    "eligible_cases": 1,
+    "excluded": {
+      "missing_prediction": 0,
+      "no_gold": 1
+    },
+    "ks": {
+      "1": {
+        "hit_rate": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "map": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "mrr": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "ndcg": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "precision": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "recall": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        }
+      },
+      "10": {
+        "hit_rate": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "map": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "mrr": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "ndcg": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "precision": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "recall": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        }
+      },
+      "3": {
+        "hit_rate": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "map": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "mrr": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "ndcg": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "precision": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "recall": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        }
+      },
+      "5": {
+        "hit_rate": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "map": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "mrr": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "ndcg": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "precision": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        },
+        "recall": {
+          "ci95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "count": 1,
+          "value": 1.0
+        }
+      }
+    },
+    "status": "MEASURED"
+  },
+  "run_validity": "MEASURED",
+  "synthetic_fixture": true
+}

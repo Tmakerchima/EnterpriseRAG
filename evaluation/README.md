@@ -26,3 +26,11 @@ python -m enterprise_rag_eval report --run reports/<run-id>
 ```
 
 Each run keeps `run-manifest.json`, `cases.jsonl`, `predictions.jsonl`, `traces.jsonl`, layered metrics and static reports. The smoke fixture is explicitly labeled `SYNTHETIC_FIXTURE — NOT A BENCHMARK RESULT`.
+
+To publish the same structured report to the Vue scorecard:
+
+```powershell
+python -m enterprise_rag_eval report --run reports/<run-id> --frontend-out ../frontend/public/evaluation/latest.json
+```
+
+`python -m enterprise_rag_eval smoke --out reports/smoke` writes a complete synthetic run for contract checks. It remains a fixture and must never be presented as a benchmark.
