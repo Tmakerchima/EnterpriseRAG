@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/enterprise-rag/case.v1.schema.json",
+  "title": "EnterpriseRAG evaluation case",
+  "type": "object",
+  "required": ["schema_version", "case_id", "question", "answerability", "access_context", "dataset_version"],
+  "properties": {
+    "schema_version": {"const": "enterprise-rag.case.v1"},
+    "case_id": {"type": "string", "minLength": 1},
+    "question": {"type": "string", "minLength": 1},
+    "language": {"type": "string"},
+    "category": {"type": "string"},
+    "difficulty": {"type": "string"},
+    "source": {"type": "string"},
+    "answerability": {"enum": ["ANSWERABLE", "UNANSWERABLE", "AMBIGUOUS"]},
+    "gold_answer": {"type": ["string", "null"]},
+    "answer_facts": {"type": "array", "items": {"type": "string"}},
+    "expected_document_ids": {"type": "array", "items": {"type": "string"}},
+    "expected_chunk_ids": {"type": "array", "items": {"type": "string"}},
+    "forbidden_document_ids": {"type": "array", "items": {"type": "string"}},
+    "access_context": {"type": "object"},
+    "expected_behavior": {"type": ["string", "null"]},
+    "rubric": {"type": "object"},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "dataset_version": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": true
+}

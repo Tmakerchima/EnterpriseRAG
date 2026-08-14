@@ -1,0 +1,112 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: enterprise-rag
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: ${ENTERPRISE_DB_URL:jdbc:postgresql://localhost:5432/enterprise_rag}
+    username: ${ENTERPRISE_DB_USERNAME:postgres}
+    password: ${ENTERPRISE_DB_PASSWORD:local_dev_only}
+    hikari:
+      maximum-pool-size: ${ENTERPRISE_DB_MAXIMUM_POOL_SIZE:10}
+      minimum-idle: ${ENTERPRISE_DB_MINIMUM_IDLE:1}
+      connection-timeout: ${ENTERPRISE_DB_CONNECTION_TIMEOUT_MS:30000}
+  ai:
+    openai:
+      base-url: ${AI_BASE_URL:http://localhost:11434/v1}
+      api-key: ${AI_API_KEY:local-dev}
+      chat:
+        options:
+          model: ${AI_CHAT_MODEL:local-chat-model}
+          temperature: ${AI_CHAT_TEMPERATURE:0.2}
+          max-tokens: ${AI_CHAT_MAX_TOKENS:500}
+      embedding:
+        options:
+          model: ${AI_EMBEDDING_MODEL:local-embedding-model}
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: ${ENTERPRISE_RAG_EMBEDDING_DIMENSIONS:1024}
+        initialize-schema: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  observations:
+    key-values:
+      service: enterprise-rag
+
+enterprise:
+  rag:
+    enabled: ${ENTERPRISE_RAG_ENABLED:true}
+    max-documents: ${ENTERPRISE_RAG_MAX_DOCUMENTS:1000}
+    max-chunk-tokens: ${ENTERPRISE_RAG_MAX_CHUNK_TOKENS:700}
+    chunk-overlap-tokens: ${ENTERPRISE_RAG_CHUNK_OVERLAP_TOKENS:80}
+    vector-top-k: ${ENTERPRISE_RAG_VECTOR_TOP_K:12}
+    keyword-top-k: ${ENTERPRISE_RAG_KEYWORD_TOP_K:12}
+    final-top-k: ${ENTERPRISE_RAG_FINAL_TOP_K:5}
+    rrf-k: ${ENTERPRISE_RAG_RRF_K:60}
+    max-context-chars: ${ENTERPRISE_RAG_MAX_CONTEXT_CHARS:9000}
+    max-context-tokens: ${ENTERPRISE_RAG_MAX_CONTEXT_TOKENS:2200}
+    max-chunks-per-document: ${ENTERPRISE_RAG_MAX_CHUNKS_PER_DOCUMENT:2}
+    similarity-threshold: ${ENTERPRISE_RAG_SIMILARITY_THRESHOLD:0.20}
+    strategy: ${ENTERPRISE_RAG_STRATEGY:HYBRID}
+    rerank-enabled: ${ENTERPRISE_RAG_RERANK_ENABLED:true}
+    lexical:
+      backend: ${ENTERPRISE_RAG_LEXICAL_BACKEND:POSTGRES_FTS}
+      fail-open: ${ENTERPRISE_RAG_LEXICAL_FAIL_OPEN:true}
+    bm25:
+      url: ${ENTERPRISE_RAG_BM25_URL:}
+      username: ${ENTERPRISE_RAG_BM25_USERNAME:}
+      password: ${ENTERPRISE_RAG_BM25_PASSWORD:}
+      top-k: ${ENTERPRISE_RAG_BM25_TOP_K:20}
+      connect-timeout-ms: ${ENTERPRISE_RAG_BM25_CONNECT_TIMEOUT_MS:1000}
+      query-timeout-ms: ${ENTERPRISE_RAG_BM25_QUERY_TIMEOUT_MS:3000}
+      max-retries: ${ENTERPRISE_RAG_BM25_MAX_RETRIES:0}
+      maximum-pool-size: ${ENTERPRISE_RAG_BM25_MAXIMUM_POOL_SIZE:4}
+      minimum-idle: ${ENTERPRISE_RAG_BM25_MINIMUM_IDLE:0}
+    reranker:
+      mode: ${ENTERPRISE_RAG_RERANKER_MODE:HEURISTIC}
+      max-candidates: ${ENTERPRISE_RAG_RERANKER_MAX_CANDIDATES:30}
+      max-chars-per-candidate: ${ENTERPRISE_RAG_RERANKER_MAX_CHARS:1600}
+    contextual:
+      enabled: ${ENTERPRISE_RAG_CONTEXTUAL_ENABLED:false}
+      fail-open: ${ENTERPRISE_RAG_CONTEXTUAL_FAIL_OPEN:false}
+      max-document-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_DOCUMENT_CHARS:60000}
+      max-prefix-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_PREFIX_CHARS:800}
+    agentic:
+      enabled: ${ENTERPRISE_RAG_AGENTIC_ENABLED:false}
+      max-rewritten-queries: ${ENTERPRISE_RAG_AGENTIC_MAX_QUERIES:2}
+      min-initial-hits: ${ENTERPRISE_RAG_AGENTIC_MIN_INITIAL_HITS:3}
+      long-query-chars: ${ENTERPRISE_RAG_AGENTIC_LONG_QUERY_CHARS:180}
+      snippet-chars: ${ENTERPRISE_RAG_AGENTIC_SNIPPET_CHARS:500}
+    admin-token: ${ENTERPRISE_RAG_ADMIN_TOKEN:}
+    vector-backend: ${ENTERPRISE_RAG_VECTOR_BACKEND:PGVECTOR}
+    active-corpus-id: ${ENTERPRISE_RAG_ACTIVE_CORPUS_ID:}
+    embedding-model: ${AI_EMBEDDING_MODEL:local-embedding-model}
+    embedding-dimensions: ${ENTERPRISE_RAG_EMBEDDING_DIMENSIONS:1024}
+    worker-batch-size: ${ENTERPRISE_RAG_WORKER_BATCH_SIZE:10}
+    worker-concurrency: ${ENTERPRISE_RAG_WORKER_CONCURRENCY:1}
+    max-retries: ${ENTERPRISE_RAG_MAX_RETRIES:5}
+  feedback:
+    enabled: ${ENTERPRISE_RAG_FEEDBACK_ENABLED:true}
+    async-sample-rate: ${ENTERPRISE_RAG_ASYNC_SAMPLE_RATE:0.02}
+
+logging:
+  level:
+    com.tmakerchima.enterpriserag: INFO
+    org.springframework.ai: INFO

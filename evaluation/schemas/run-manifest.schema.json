@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/enterprise-rag/run-manifest.v1.schema.json",
+  "title": "EnterpriseRAG run manifest",
+  "type": "object",
+  "required": ["manifest_version", "run_id", "dataset_hash", "config_hash", "seed", "status"],
+  "properties": {
+    "manifest_version": {"const": "enterprise-rag.run.v1"},
+    "run_id": {"type": "string"},
+    "dataset_hash": {"type": "string", "minLength": 1},
+    "config_hash": {"type": "string", "minLength": 1},
+    "seed": {"type": "integer"},
+    "status": {"enum": ["MEASURED", "NOT_EXECUTED", "SKIPPED_EXTERNAL_DEPENDENCY", "INVALID_RUN", "BACKEND_MISMATCH"]}
+  },
+  "additionalProperties": true
+}

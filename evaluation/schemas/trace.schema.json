@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/enterprise-rag/trace.v1.schema.json",
+  "title": "EnterpriseRAG evaluation trace",
+  "type": "object",
+  "required": ["trace_schema_version", "case_id", "request_id", "trace_id", "candidate_document_ids", "final_document_ids"],
+  "properties": {
+    "trace_schema_version": {"const": "enterprise-rag.trace.v1"},
+    "case_id": {"type": "string"},
+    "request_id": {"type": "string"},
+    "trace_id": {"type": "string"},
+    "candidate_document_ids": {"type": "array", "items": {"type": "string"}},
+    "final_document_ids": {"type": "array", "items": {"type": "string"}},
+    "coverage_status": {"enum": ["fully_supported", "partially_supported", "unsupported", "unknown"]},
+    "judge_status": {"enum": ["MEASURED", "NOT_EXECUTED", "INVALID_RUN"]}
+  },
+  "additionalProperties": true
+}
