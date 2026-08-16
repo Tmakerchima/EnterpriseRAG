@@ -13,7 +13,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,7 +31,7 @@ public class EnterpriseDocumentRepository {
 
     private static final String ACL_FILTER = """
             AND (? = 'admin' OR d.access_level = 'public' OR d.department = ?)
-            AND (CAST(? AS text) IS NULL OR d.tenant_id = CAST(? AS text))
+            AND d.tenant_id = ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -125,7 +127,9 @@ public class EnterpriseDocumentRepository {
                 )
                 SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
                        c.content, d.tenant_id, d.department, d.access_level, c.chunk_index,
-                       ts_rank_cd(c.search_vector, query_text.query) AS score, c.metadata
+                       ts_rank_cd(c.search_vector, query_text.query) AS score, c.metadata,
+                       c.corpus_id, (SELECT dataset_version FROM enterprise_corpora v
+                                     WHERE v.corpus_id = c.corpus_id) AS corpus_version
                 FROM enterprise_chunks c
                 JOIN enterprise_documents d ON d.document_id = c.document_id
                 CROSS JOIN query_text
@@ -138,7 +142,7 @@ public class EnterpriseDocumentRepository {
                 LIMIT ?
                 """;
         return jdbcTemplate.query(sql, this::mapHit, query, access.role(), access.department(),
-                access.tenantId(), access.tenantId(), topK).stream()
+                access.tenantId(), topK).stream()
                 .map(hit -> hit.withScore(hit.score(), hit.rank()))
                 .toList();
     }
@@ -151,7 +155,9 @@ public class EnterpriseDocumentRepository {
                 )
                 SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
                        c.content, d.tenant_id, d.department, d.access_level, c.chunk_index,
-                       1 - (c.embedding <=> query_embedding.embedding) AS score, c.metadata
+                       1 - (c.embedding <=> query_embedding.embedding) AS score, c.metadata,
+                       c.corpus_id, (SELECT dataset_version FROM enterprise_corpora v
+                                     WHERE v.corpus_id = c.corpus_id) AS corpus_version
                 FROM enterprise_chunks c
                 JOIN enterprise_documents d ON d.document_id = c.document_id
                 CROSS JOIN query_embedding
@@ -165,7 +171,7 @@ public class EnterpriseDocumentRepository {
                 LIMIT ?
                 """;
         return jdbcTemplate.query(sql, this::mapHit, vectorLiteral(embedding), threshold, access.role(),
-                access.department(), access.tenantId(), access.tenantId(), topK).stream()
+                access.department(), access.tenantId(), topK).stream()
                 .map(hit -> hit.withScore(hit.score(), hit.rank()))
                 .toList();
     }
@@ -175,6 +181,11 @@ public class EnterpriseDocumentRepository {
      * BM25 数据源只负责执行搜索，原始 content 和 ACL 元数据仍使用同一映射规则。
      */
     public EnterpriseSearchHit mapHit(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        Map<String, Object> metadata = new LinkedHashMap<>(readMetadata(rs.getString("metadata")));
+        Object corpusId = rs.getObject("corpus_id");
+        String corpusVersion = rs.getString("corpus_version");
+        if (corpusId != null) metadata.put("corpus_id", corpusId.toString());
+        if (corpusVersion != null && !corpusVersion.isBlank()) metadata.put("corpus_version", corpusVersion);
         return new EnterpriseSearchHit(
                 rs.getString("chunk_id"),
                 rs.getString("document_id"),
@@ -189,7 +200,7 @@ public class EnterpriseDocumentRepository {
                 rs.getInt("chunk_index"),
                 rs.getDouble("score"),
                 rowNum + 1,
-                readMetadata(rs.getString("metadata")));
+                Collections.unmodifiableMap(metadata));
     }
 
     private String toJson(Map<String, Object> value) {

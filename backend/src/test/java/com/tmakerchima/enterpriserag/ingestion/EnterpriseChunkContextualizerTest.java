@@ -45,6 +45,21 @@ class EnterpriseChunkContextualizerTest {
         assertThat(indexed.indexContent()).startsWith(indexed.contextualPrefix()).endsWith(indexed.chunk().content());
     }
 
+    @Test
+    void failedOptionalContextualizationFallsBackToOriginalIndexContent() {
+        ChatClient client = mock(ChatClient.class, RETURNS_DEEP_STUBS);
+        when(client.prompt().system(anyString()).user(anyString()).call().content())
+                .thenThrow(new IllegalStateException("contextual provider offline"));
+        EnterpriseChunkContextualizer contextualizer = new EnterpriseChunkContextualizer(
+                client, new JTokkitTokenCountEstimator(), true, true, 10_000, 400);
+
+        var indexed = contextualizer.contextualize(document(), chunk());
+
+        assertThat(indexed.contextualPrefix()).isEmpty();
+        assertThat(indexed.indexContent()).isEqualTo(chunk().content());
+        assertThat(contextualizer.fingerprint()).contains("fail-open-true");
+    }
+
     private EnterpriseDocumentInput document() {
         return new EnterpriseDocumentInput("report-1", "drive", "pdf", "ACME Q2 2026",
                 "ACME Q2 2026 results.\n\nRevenue increased by 3%.",

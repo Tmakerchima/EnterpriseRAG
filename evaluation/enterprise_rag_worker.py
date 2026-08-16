@@ -99,7 +99,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--contextual-api-key", default="")
     parser.add_argument("--contextual-max-document-chars", type=int, default=60000)
     parser.add_argument("--contextual-max-prefix-chars", type=int, default=800)
-    parser.add_argument("--contextual-fail-open", action="store_true")
+    parser.add_argument("--contextual-fail-open", action="store_true", default=True,
+                        help="fall back to original chunks when contextualization fails (default)")
+    parser.add_argument("--contextual-fail-closed", action="store_false", dest="contextual_fail_open",
+                        help="abort ingestion when an enabled contextualizer fails")
     parser.add_argument("--retrieval-prefix-mode", choices=["NONE", "STRUCTURAL", "LLM"], default="",
                         help="NONE, deterministic STRUCTURAL metadata, or LLM contextual prefix")
     parser.add_argument("--database-url", default="")
@@ -738,7 +741,8 @@ def main() -> int:
         "contextual_model": args.contextual_model if prefix_mode(args) == "LLM" else "",
         "contextual_url": args.contextual_url if prefix_mode(args) == "LLM" else "",
         "contextual_max_document_chars": args.contextual_max_document_chars if prefix_mode(args) == "LLM" else 0,
-        "contextual_max_prefix_chars": args.contextual_max_prefix_chars if prefix_mode(args) != "NONE" else 0
+        "contextual_max_prefix_chars": args.contextual_max_prefix_chars if prefix_mode(args) != "NONE" else 0,
+        "contextual_fail_open": args.contextual_fail_open if prefix_mode(args) != "NONE" else False
     }, sort_keys=True))
     checkpoint_fingerprint = checkpoint_value(checkpoint, "pipeline_fingerprint")
     if args.resume and checkpoint_fingerprint != pipeline_fingerprint:

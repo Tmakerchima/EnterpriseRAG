@@ -9,7 +9,6 @@ import com.tmakerchima.enterpriserag.model.EnterpriseSearchHit;
 import com.tmakerchima.enterpriserag.retrieval.EnterpriseRetrievalMetrics;
 import com.tmakerchima.enterpriserag.retrieval.EnterpriseRetrievalResult;
 import com.tmakerchima.enterpriserag.retrieval.EnterpriseRetrievalService;
-import com.tmakerchima.enterpriserag.retrieval.EnterpriseQueryPlanner;
 import com.tmakerchima.enterpriserag.observability.EnterpriseInteractionService;
 import com.tmakerchima.enterpriserag.observability.EnterpriseTelemetry;
 import io.micrometer.observation.Observation;
@@ -40,7 +39,6 @@ public class EnterpriseChatService {
 
     private final ChatClient chatClient;
     private final EnterpriseRetrievalService retrievalService;
-    private final EnterpriseQueryPlanner queryPlanner;
     private final ObjectMapper objectMapper;
     private final EnterpriseRetrievalStrategy defaultStrategy;
     private final boolean enabled;
@@ -49,7 +47,6 @@ public class EnterpriseChatService {
 
     public EnterpriseChatService(ChatClient chatClient,
                                  EnterpriseRetrievalService retrievalService,
-                                 EnterpriseQueryPlanner queryPlanner,
                                  ObjectMapper objectMapper,
                                  @Value("${enterprise.rag.strategy:HYBRID}") String defaultStrategy,
                                  @Value("${enterprise.rag.enabled:true}") boolean enabled,
@@ -57,7 +54,6 @@ public class EnterpriseChatService {
                                  EnterpriseInteractionService interactionService) {
         this.chatClient = chatClient;
         this.retrievalService = retrievalService;
-        this.queryPlanner = queryPlanner;
         this.objectMapper = objectMapper;
         this.defaultStrategy = EnterpriseRetrievalStrategy.parse(defaultStrategy, EnterpriseRetrievalStrategy.HYBRID);
         this.enabled = enabled;
@@ -101,30 +97,28 @@ public class EnterpriseChatService {
             // 非法或缺失策略会回落到配置中的默认值，防止客户端传入未知模式破坏检索链路。
             EnterpriseRetrievalStrategy strategy = EnterpriseRetrievalStrategy.parse(request.strategy(), defaultStrategy);
 
-            // 第一阶段检索：向量、关键词或两者并行召回，并在 SQL 层完成 ACTIVE corpus 与 ACL 过滤。
-            EnterpriseRetrievalResult initialRetrieval = retrievalService.retrieve(question, access, strategy);
-            Observation observation = telemetry.startRequest(strategy.name(), initialRetrieval.metrics().lexicalBackend());
-
-            // 可选的 agentic query planner 只负责改写查询，不得修改 access 或权限条件。
-            List<String> rewrittenQueries = queryPlanner.plan(question, initialRetrieval.hits());
-
-            // 如果启用改写，将多次检索结果按排名融合；默认关闭时直接复用第一阶段结果。
-            EnterpriseRetrievalResult retrieval = retrievalService.expand(
-                    initialRetrieval, question, rewrittenQueries, access, strategy);
+            // 唯一的在线检索路径：每一路 SQL 都复用同一个 tenant/ACL context，
+            // 不让 query rewrite 或 agent 产生第二套权限和融合控制流。
+            EnterpriseRetrievalResult retrieval = retrievalService.retrieve(question, access, strategy);
+            Observation observation = telemetry.startRequest(strategy.name(), retrieval.metrics().lexicalBackend());
 
             // 来源帧先于答案发送，使前端可以在模型仍生成时展示可追溯证据。
             // groundedPrompt 只拼接最终可访问的原始 content，不把 contextual_prefix 当作引用证据。
             String groundedPrompt = groundedPrompt(question, access, retrieval.hits());
 
-            // ChatClient 使用 DashScope 兼容接口流式生成；LLM 失败时转换成结构化错误帧。
-            Flux<String> answer = chatClient.prompt()
-                    .system(SYSTEM_PROMPT)
-                    .user(groundedPrompt)
-                    .stream()
-                    .content()
-                    .map(token -> SseEvent.encode(objectMapper, "token", requestId, traceId,
-                            Map.of("text", token)))
-                    .onErrorResume(error -> Flux.just(errorFrame(requestId, traceId, "LLM request failed")));
+            // 没有授权证据时直接拒答，避免把“请依据空 context 回答”交给模型后仍产生幻觉。
+            Flux<String> answer = retrieval.hits().isEmpty()
+                    ? Flux.just(tokenFrame(requestId, traceId,
+                            "Insufficient evidence in the authorized corpus to answer this question."))
+                    // 有证据时才调用 ChatClient；模型只能看到已完成 ACL 与 context budget 的原文。
+                    : chatClient.prompt()
+                            .system(SYSTEM_PROMPT)
+                            .user(groundedPrompt)
+                            .stream()
+                            .content()
+                            .map(token -> SseEvent.encode(objectMapper, "token", requestId, traceId,
+                                    Map.of("text", token)))
+                            .onErrorResume(error -> Flux.just(errorFrame(requestId, traceId, "LLM request failed")));
 
             // SSE 输出顺序：@@SOURCES@@ → 多个答案片段 → @@METRICS@@。
             return Flux.concat(Mono.just(sourcesFrame(requestId, traceId, retrieval)), answer,
@@ -171,9 +165,14 @@ public class EnterpriseChatService {
             source.put("source_type", hit.sourceType());
             source.put("source", hit.source());
             source.put("title", hit.title());
+            // Keep the existing external document_id contract and add the
+            // internal key for audit/debugging without changing clients.
             source.put("document_id", hit.externalId());
+            source.put("external_id", hit.externalId());
+            source.put("internal_document_id", hit.documentId());
             source.put("chunk_id", hit.chunkId());
             source.put("chunk", snippet(hit.content()));
+            source.put("metadata", hit.metadata());
             source.put("rank", hit.rank());
             source.put("score", round(hit.score()));
             return source;
@@ -201,6 +200,8 @@ public class EnterpriseChatService {
         metrics.put("llm_ms", Math.max(0, elapsedMs(started) - values.vectorMs() - values.ftsMs() - values.rrfMs() - values.rerankMs()));
         metrics.put("total_ms", elapsedMs(started));
         metrics.put("candidate_count", values.candidateCount());
+        metrics.put("candidate_document_ids", retrieval.candidateDocumentIds());
+        metrics.put("candidate_chunk_ids", retrieval.candidateChunkIds());
         metrics.put("final_context_count", values.finalContextCount());
         metrics.put("context_token_count", values.contextTokenCount());
         metrics.put("unique_document_count", values.uniqueDocumentCount());
@@ -219,6 +220,10 @@ public class EnterpriseChatService {
 
     private String doneFrame(String requestId, String traceId) {
         return SseEvent.encode(objectMapper, "done", requestId, traceId, Map.of("status", "complete"));
+    }
+
+    private String tokenFrame(String requestId, String traceId, String text) {
+        return SseEvent.encode(objectMapper, "token", requestId, traceId, Map.of("text", text));
     }
 
     private String snippet(String text) {

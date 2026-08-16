@@ -41,7 +41,7 @@ public class EnterpriseChunkContextualizer {
     public EnterpriseChunkContextualizer(
             ChatModel chatModel,
             @Value("${enterprise.rag.contextual.enabled:false}") boolean enabled,
-            @Value("${enterprise.rag.contextual.fail-open:false}") boolean failOpen,
+            @Value("${enterprise.rag.contextual.fail-open:true}") boolean failOpen,
             @Value("${enterprise.rag.contextual.max-document-chars:60000}") int maxDocumentChars,
             @Value("${enterprise.rag.contextual.max-prefix-chars:800}") int maxPrefixChars,
             @Value("${spring.ai.openai.chat.options.model:unknown}") String modelId) {
@@ -98,7 +98,8 @@ public class EnterpriseChunkContextualizer {
     /** 配置变化会进入入库管线指纹，确保旧 Chunk 使用同一套上下文策略重建。 */
     public String fingerprint() {
         if (!enabled) return "contextual-off-v1";
-        return "contextual-llm-v1:" + modelId + ":doc-" + maxDocumentChars + ":prefix-" + maxPrefixChars;
+        return "contextual-llm-v1:" + modelId + ":doc-" + maxDocumentChars + ":prefix-" + maxPrefixChars
+                + ":fail-open-" + failOpen;
     }
 
     /** 让模型根据文档元数据、有限文档上下文和当前 Chunk 生成短定位前缀。 */

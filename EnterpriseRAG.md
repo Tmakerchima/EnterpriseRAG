@@ -89,7 +89,7 @@ versioned corpus / golden set
 
 - Java 21 / Spring Boot / Spring AI 后端；
 - EnterpriseRAG 独立的 controller、service、ingestion、retrieval、repository、model；
-- PGVector、PostgreSQL FTS、ParadeDB BM25、RRF、可插拔 reranker、query planner、ACL；
+- PGVector、PostgreSQL FTS、ParadeDB BM25、RRF、可插拔 reranker、ACL；未保留无 benchmark 依据的 query planner 运行路径；
 - V1-V4 enterprise migrations；
 - 可恢复 Python ingestion worker；
 - Vue/Vite `enterprise-rag-frontend`；

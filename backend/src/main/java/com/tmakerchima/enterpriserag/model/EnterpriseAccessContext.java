@@ -2,12 +2,19 @@ package com.tmakerchima.enterpriserag.model;
 
 import java.util.Locale;
 
-/** Demo authorization context used to demonstrate retrieval-time ACL filtering. */
+/**
+ * Authorization context passed to every retrieval branch.
+ *
+ * <p>The tenant is never optional. An administrator can have broad ACL access
+ * inside a tenant, but still cannot turn a missing tenant into a cross-tenant
+ * search. This keeps the demo boundary aligned with a production data-access
+ * rule: authorization is carried by the server-side context, not by a prompt.</p>
+ */
 public record EnterpriseAccessContext(String role, String tenantId, String department) {
 
     public EnterpriseAccessContext {
         role = normalizeRole(role);
-        tenantId = normalizeNullable(tenantId);
+        tenantId = normalizeTenant(tenantId);
         department = normalizeNullable(department);
     }
 
@@ -17,9 +24,7 @@ public record EnterpriseAccessContext(String role, String tenantId, String depar
             case "engineering", "finance", "hr" -> role;
             default -> null;
         };
-        String tenantId = normalizeNullable(requestedTenantId);
-        if (tenantId == null && !"admin".equals(role)) tenantId = "default";
-        return new EnterpriseAccessContext(role, tenantId, department);
+        return new EnterpriseAccessContext(role, requestedTenantId, department);
     }
 
     public boolean isAdmin() {
@@ -36,5 +41,10 @@ public record EnterpriseAccessContext(String role, String tenantId, String depar
 
     private static String normalizeNullable(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String normalizeTenant(String value) {
+        String tenant = normalizeNullable(value);
+        return tenant == null ? "default" : tenant;
     }
 }

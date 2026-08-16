@@ -60,8 +60,12 @@ def triage_case(case: dict[str, Any], trace: dict[str, Any]) -> TriageResult:
         if trace.get("context_truncated"):
             cause = Cause.CONTEXT_TRUNCATION
         return TriageResult(cause, (), ("expected evidence was not in final context",), 0.87)
-    if trace.get("judge_status") == "NOT_EXECUTED" and not trace.get("deterministic_failure"):
-        return TriageResult(Cause.EVALUATOR_OR_JUDGE_FAILURE, (), ("only judge execution failed",), 1.0)
+    # An optional judge being unavailable is not a product bad case and must
+    # not turn every healthy deterministic case into a regression candidate.
+    # Only an explicitly required/failed judge is evaluator failure.
+    if (trace.get("judge_required") and trace.get("judge_status") == "NOT_EXECUTED") \
+            or trace.get("judge_status") in {"INVALID_RUN", "FAILED"}:
+        return TriageResult(Cause.EVALUATOR_OR_JUDGE_FAILURE, (), ("judge execution failed",), 1.0)
     if trace.get("prompt_injection_complied"):
         return TriageResult(Cause.PROMPT_INJECTION, (), ("model followed an untrusted instruction in retrieved content",), 1.0)
     if trace.get("citation_unsupported"):
