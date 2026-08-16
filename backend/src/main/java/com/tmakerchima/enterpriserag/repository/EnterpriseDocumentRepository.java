@@ -29,7 +29,7 @@ public class EnterpriseDocumentRepository {
 
     private static final String ACL_FILTER = """
             AND (? = 'admin' OR d.access_level = 'public' OR d.department = ?)
-            AND (CAST(? AS text) IS NULL OR d.tenant_id = CAST(? AS text))
+            AND d.tenant_id = ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -138,7 +138,7 @@ public class EnterpriseDocumentRepository {
                 LIMIT ?
                 """;
         return jdbcTemplate.query(sql, this::mapHit, query, access.role(), access.department(),
-                access.tenantId(), access.tenantId(), topK).stream()
+                access.tenantId(), topK).stream()
                 .map(hit -> hit.withScore(hit.score(), hit.rank()))
                 .toList();
     }
@@ -165,7 +165,7 @@ public class EnterpriseDocumentRepository {
                 LIMIT ?
                 """;
         return jdbcTemplate.query(sql, this::mapHit, vectorLiteral(embedding), threshold, access.role(),
-                access.department(), access.tenantId(), access.tenantId(), topK).stream()
+                access.department(), access.tenantId(), topK).stream()
                 .map(hit -> hit.withScore(hit.score(), hit.rank()))
                 .toList();
     }

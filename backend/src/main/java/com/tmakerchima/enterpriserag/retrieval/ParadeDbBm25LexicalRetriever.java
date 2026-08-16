@@ -5,6 +5,7 @@ import com.tmakerchima.enterpriserag.repository.EnterpriseDocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
@@ -46,7 +47,7 @@ public class ParadeDbBm25LexicalRetriever implements EnterpriseLexicalRetriever 
                                  WHERE state = 'ACTIVE' LIMIT 1)
               AND c.index_content IS NOT NULL
               AND (? = 'admin' OR d.access_level = 'public' OR d.department = ?)
-              AND (CAST(? AS text) IS NULL OR d.tenant_id = CAST(? AS text))
+              AND d.tenant_id = ?
             ORDER BY pdb.score(c.chunk_id) DESC, c.chunk_id ASC
             LIMIT ?
             """;
@@ -56,23 +57,32 @@ public class ParadeDbBm25LexicalRetriever implements EnterpriseLexicalRetriever 
     private final ObjectProvider<JdbcTemplate> jdbcTemplateProvider;
     private final EnterpriseDocumentRepository hitMapper;
     private final String url;
-    private final int bm25TopK;
     private final int queryTimeoutMs;
     private final int maxRetries;
 
+    @Autowired
     public ParadeDbBm25LexicalRetriever(
             @Qualifier("bm25JdbcTemplate") ObjectProvider<JdbcTemplate> jdbcTemplateProvider,
             EnterpriseDocumentRepository hitMapper,
             @Value("${enterprise.rag.bm25.url:}") String url,
-            @Value("${enterprise.rag.bm25.top-k:20}") int bm25TopK,
             @Value("${enterprise.rag.bm25.query-timeout-ms:3000}") int queryTimeoutMs,
             @Value("${enterprise.rag.bm25.max-retries:0}") int maxRetries) {
         this.jdbcTemplateProvider = jdbcTemplateProvider;
         this.hitMapper = hitMapper;
         this.url = url == null ? "" : url.trim();
-        this.bm25TopK = Math.max(1, bm25TopK);
         this.queryTimeoutMs = Math.max(100, queryTimeoutMs);
         this.maxRetries = Math.min(2, Math.max(0, maxRetries));
+    }
+
+    /**
+     * Source-compatible constructor for callers that used the removed BM25
+     * top-k cap. Retrieval owns the single keywordTopK budget now; the old
+     * argument is intentionally ignored instead of creating a second limit.
+     */
+    public ParadeDbBm25LexicalRetriever(ObjectProvider<JdbcTemplate> jdbcTemplateProvider,
+                                        EnterpriseDocumentRepository hitMapper,
+                                        String url, int ignoredTopK, int queryTimeoutMs, int maxRetries) {
+        this(jdbcTemplateProvider, hitMapper, url, queryTimeoutMs, maxRetries);
     }
 
     @Override
@@ -82,13 +92,13 @@ public class ParadeDbBm25LexicalRetriever implements EnterpriseLexicalRetriever 
             throw new EnterpriseBm25UnavailableException("BM25_CONFIGURATION_ERROR",
                     "ParadeDB BM25 backend is selected but enterprise.rag.bm25.url is not configured");
         }
-        int boundedTopK = Math.min(Math.max(1, topK), bm25TopK);
+        int boundedTopK = Math.max(1, topK);
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 // JdbcTemplate 的参数绑定会把用户查询作为值传入，避免把特殊查询语法拼进 SQL。
                 jdbcTemplate.setQueryTimeout(Math.max(1, (int) Math.ceil(queryTimeoutMs / 1000.0)));
                 var hits = jdbcTemplate.query(BM25_SQL, hitMapper::mapHit, query,
-                        access.role(), access.department(), access.tenantId(), access.tenantId(), boundedTopK);
+                        access.role(), access.department(), access.tenantId(), boundedTopK);
                 return EnterpriseLexicalSearchResult.of(hits, "PARADEDB_BM25");
             } catch (DataAccessException error) {
                 if (attempt < maxRetries) {

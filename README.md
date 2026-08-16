@@ -31,6 +31,8 @@ npm run build
 - 前端：Vue 3 + TypeScript，只展示服务端真实返回的来源和 metrics；没有 measured report 时显示 `Not measured yet`。
 - 评测：`evaluation` 是可安装 Python package。确定性 retrieval/generation/citation/security/performance 指标与可选 DeepEval judge 分离。
 - 闭环：run manifest → 分层指标 → baseline/candidate compare → deterministic triage → 人工确认 → regression promotion。
+- 简化后的真实调用链见 [simplified architecture](docs/simplified-architecture.md)：一个 `retrieve` 入口，SQL 层 tenant/ACL，Vector + lexical → RRF → optional rerank → context budget → grounded chat。
+- 生产批量入库由 `evaluation/enterprise_rag_worker.py` canonical worker 负责；Java `/admin/ingest` 只保留为 token-protected、deprecated 的小规模兼容入口。
 
 常用命令：
 
@@ -40,6 +42,8 @@ python -m enterprise_rag_eval dataset validate --cases fixtures/smoke-cases.json
 python -m enterprise_rag_eval collect --cases <cases.jsonl> --api-base http://localhost:8080 --out reports/<run-id>
 python -m enterprise_rag_eval score retrieval --run reports/<run-id>
 python -m enterprise_rag_eval score generation --run reports/<run-id> --judge none
+python -m enterprise_rag_eval score security --run reports/<run-id>
+python -m enterprise_rag_eval score performance --run reports/<run-id>
 python -m enterprise_rag_eval triage --run reports/<run-id>
 python -m enterprise_rag_eval report --run reports/<run-id>
 ```

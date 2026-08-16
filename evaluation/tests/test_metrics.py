@@ -29,6 +29,16 @@ def test_no_gold_is_excluded_from_retrieval_denominator() -> None:
     assert result["excluded"]["no_gold"] == 1
 
 
+def test_retrieval_reports_gold_missing_from_final_context_separately() -> None:
+    case = EvaluationCase(case_id="a", question="q", expected_document_ids=("doc-a",))
+    result = score_retrieval([case], {
+        "a": {"document_ids": ["doc-a"], "final_document_ids": ["doc-other"]},
+    })
+
+    assert result["ks"]["5"]["recall"]["value"] == 1.0
+    assert result["gold_in_final_context"]["value"] == 0.0
+
+
 def test_wilson_interval_is_deterministic() -> None:
     assert wilson_interval(8, 10) == wilson_interval(8, 10)
 
@@ -73,3 +83,18 @@ def test_paraphrased_fact_requires_semantic_review_instead_of_false_failure() ->
         "outcome": "NEEDS_REVIEW",
         "reasons": ["SEMANTIC_FACT_REVIEW_REQUIRED"],
     }
+
+
+def test_citation_must_reference_a_final_context_chunk() -> None:
+    case = EvaluationCase(case_id="citation", question="q", expected_document_ids=("doc-a",))
+    result = score_generation([case], {
+        "citation": {
+            "answer": "supported",
+            "document_ids": ["doc-a"],
+            "final_document_ids": ["doc-a"],
+            "final_chunk_ids": ["chunk-a"],
+            "citations": ["chunk-not-retrieved"],
+        },
+    })
+
+    assert result["citation_validity"]["value"] == 0.0

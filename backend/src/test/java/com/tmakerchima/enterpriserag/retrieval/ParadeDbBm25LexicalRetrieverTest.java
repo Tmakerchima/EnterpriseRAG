@@ -25,7 +25,7 @@ class ParadeDbBm25LexicalRetrieverTest {
         assertThat(ParadeDbBm25LexicalRetriever.BM25_SQL)
                 .contains("index_content ||| ?", "pdb.score(c.chunk_id)", "LIMIT ?",
                         "d.deleted_at IS NULL", "state = 'ACTIVE'", "d.access_level", "d.department", "d.tenant_id")
-                .doesNotContain("ts_rank", "search_vector");
+                .doesNotContain("ts_rank", "search_vector", "CAST(? AS text) IS NULL");
     }
 
     @Test

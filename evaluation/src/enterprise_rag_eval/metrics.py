@@ -91,6 +91,12 @@ def score_retrieval(cases: list[EvaluationCase], predictions: dict[str, dict[str
         "missing_prediction": sum(case.has_retrieval_gold and case.case_id not in predictions for case in cases),
     }
     result: dict[str, Any] = {"status": "MEASURED" if eligible else "NOT_EXECUTED", "eligible_cases": len(eligible), "excluded": excluded, "ks": {}}
+    final_context_values = [
+        float(bool(set(case.expected_document_ids).intersection(
+            ranked_unique(predictions[case.case_id].get("final_document_ids",
+                                                         predictions[case.case_id].get("document_ids", []))))))
+        for case in eligible
+    ]
     for k in ks:
         values = {"hit_rate": [], "recall": [], "precision": [], "mrr": [], "ndcg": [], "map": []}
         for case in eligible:
@@ -103,6 +109,9 @@ def score_retrieval(cases: list[EvaluationCase], predictions: dict[str, dict[str
             values["ndcg"].append(ndcg(retrieved, expected, k))
             values["map"].append(average_precision(retrieved, expected, k))
         result["ks"][str(k)] = {name: macro(items) for name, items in values.items()}
+    # Candidate recall and final-context coverage are separate: context budgets
+    # or reranking can remove a gold document even when retrieval found it.
+    result["gold_in_final_context"] = macro(final_context_values)
     return result
 
 
@@ -149,10 +158,11 @@ def score_generation(cases: list[EvaluationCase], predictions: dict[str, dict[st
             "verbatim_fact_coverage": fact_coverage(answer, case.answer_facts),
             "empty_answer": float(not answer.strip()),
             "citation_schema_valid": float(all(isinstance(item, str) and item for item in prediction.get("citations", []))),
+            "citation_validity": citation_validity(case, prediction),
             "error": bool(prediction.get("metrics", {}).get("error")),
         })
     result = {"status": "MEASURED" if rows else "NOT_EXECUTED", "eligible_cases": len(rows), "cases": rows}
-    for key in ("exact_match", "token_f1", "verbatim_fact_coverage", "citation_schema_valid"):
+    for key in ("exact_match", "token_f1", "verbatim_fact_coverage", "citation_schema_valid", "citation_validity"):
         result[key] = macro([row[key] for row in rows if row[key] is not None])
     result["fact_coverage"] = {
         "status": "NOT_EXECUTED",
@@ -163,6 +173,16 @@ def score_generation(cases: list[EvaluationCase], predictions: dict[str, dict[st
     }
     result["case_success"] = score_success(cases, predictions)
     return result
+
+
+def citation_validity(case: EvaluationCase, prediction: dict[str, Any]) -> float:
+    """Check that returned citations point to chunks in the final context."""
+    citations = {str(value) for value in prediction.get("citations", []) if str(value)}
+    authorized_chunks = {str(value) for value in prediction.get(
+        "final_chunk_ids", prediction.get("chunk_ids", [])) if str(value)}
+    if case.answerability != "ANSWERABLE" and not citations:
+        return 1.0
+    return float(bool(citations) and citations.issubset(authorized_chunks))
 
 
 def case_success(case: EvaluationCase, prediction: dict[str, Any]) -> tuple[bool | None, list[str]]:

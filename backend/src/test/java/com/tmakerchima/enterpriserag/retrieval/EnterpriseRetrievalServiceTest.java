@@ -38,6 +38,22 @@ class EnterpriseRetrievalServiceTest {
     }
 
     @Test
+    void hybridRetrievalPassesTheSameTenantScopedContextToBothBranches() {
+        EnterpriseDocumentRepository repository = mock(EnterpriseDocumentRepository.class);
+        EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
+        EnterpriseAccessContext access = EnterpriseAccessContext.from("finance", "tenant-a");
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(repository.searchVector(any(), eq(access), eq(12), eq(0.2))).thenReturn(List.of());
+        when(repository.searchKeyword(anyString(), eq(access), eq(12))).thenReturn(List.of());
+
+        service(repository, embeddingModel, new NoOpReranker())
+                .retrieve("payroll", access, EnterpriseRetrievalStrategy.HYBRID);
+
+        verify(repository).searchVector(any(), eq(access), eq(12), eq(0.2));
+        verify(repository).searchKeyword("payroll", access, 12);
+    }
+
+    @Test
     void vectorFailureFallsBackToKeywordForHybridStrategy() {
         EnterpriseDocumentRepository repository = mock(EnterpriseDocumentRepository.class);
         EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
@@ -70,24 +86,44 @@ class EnterpriseRetrievalServiceTest {
     }
 
     @Test
-    void rewrittenQueriesReuseTheExactSameAccessContext() {
+    void disabledRerankerLeavesHybridRetrievalUsable() {
         EnterpriseDocumentRepository repository = mock(EnterpriseDocumentRepository.class);
         EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
-        EnterpriseAccessContext access = EnterpriseAccessContext.from("finance", "tenant-a");
-        when(repository.searchKeyword("original", access, 12)).thenReturn(List.of(hit("initial", "initial evidence")));
-        when(repository.searchKeyword("exact billing term", access, 12)).thenReturn(List.of(hit("expanded", "billing evidence")));
-        EnterpriseRetrievalService service = service(repository, embeddingModel, new NoOpReranker());
+        Reranker reranker = mock(Reranker.class);
+        EnterpriseSearchHit result = hit("hybrid", "hybrid evidence");
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(repository.searchVector(any(), any(), eq(12), eq(0.2))).thenReturn(List.of(result));
+        when(repository.searchKeyword(anyString(), any(), eq(12))).thenReturn(List.of());
 
-        EnterpriseRetrievalResult initial = service.retrieve(
-                "original", access, EnterpriseRetrievalStrategy.KEYWORD);
-        EnterpriseRetrievalResult expanded = service.expand(initial, "original", List.of("exact billing term"),
-                access, EnterpriseRetrievalStrategy.KEYWORD);
+        EnterpriseRetrievalService service = new EnterpriseRetrievalService(repository, embeddingModel,
+                new RrfFusion(), reranker, 12, 12, 5, 60, 9000, 0.2, false);
+        EnterpriseRetrievalResult retrieval = service.retrieve("query",
+                EnterpriseAccessContext.from("engineering", "tenant-a"), EnterpriseRetrievalStrategy.HYBRID_RERANK);
 
-        assertThat(expanded.hits()).extracting(EnterpriseSearchHit::chunkId)
-                .containsExactlyInAnyOrder("initial", "expanded");
-        assertThat(expanded.metrics().queryCount()).isEqualTo(2);
-        verify(repository).searchKeyword("original", access, 12);
-        verify(repository).searchKeyword("exact billing term", access, 12);
+        assertThat(retrieval.hits()).extracting(EnterpriseSearchHit::chunkId).containsExactly("hybrid");
+        verifyNoInteractions(reranker);
+    }
+
+    @Test
+    void rerankerCannotInjectAHitOutsideTheAclFilteredCandidateSet() {
+        EnterpriseDocumentRepository repository = mock(EnterpriseDocumentRepository.class);
+        EmbeddingModel embeddingModel = mock(EmbeddingModel.class);
+        EnterpriseSearchHit allowed = hit("allowed", "authorized evidence");
+        EnterpriseSearchHit injected = new EnterpriseSearchHit("injected", "other-doc", "other-doc",
+                "bench", "github", "Other", "unauthorized evidence", "tenant-b", "finance",
+                "confidential", 0, 1.0, 1, Map.of());
+        Reranker reranker = mock(Reranker.class);
+        when(embeddingModel.embed(anyString())).thenReturn(new float[]{0.1f});
+        when(repository.searchVector(any(), any(), eq(12), eq(0.2))).thenReturn(List.of(allowed));
+        when(repository.searchKeyword(anyString(), any(), eq(12))).thenReturn(List.of());
+        when(reranker.rerank(anyString(), anyList())).thenReturn(List.of(injected));
+
+        EnterpriseRetrievalResult retrieval = new EnterpriseRetrievalService(repository, embeddingModel,
+                new RrfFusion(), reranker, 12, 12, 5, 60, 9000, 0.2, true)
+                .retrieve("query", EnterpriseAccessContext.from("engineering", "tenant-a"),
+                        EnterpriseRetrievalStrategy.HYBRID_RERANK);
+
+        assertThat(retrieval.hits()).extracting(EnterpriseSearchHit::chunkId).containsExactly("allowed");
     }
 
     @Test

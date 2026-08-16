@@ -73,7 +73,6 @@ enterprise:
       url: ${ENTERPRISE_RAG_BM25_URL:}
       username: ${ENTERPRISE_RAG_BM25_USERNAME:}
       password: ${ENTERPRISE_RAG_BM25_PASSWORD:}
-      top-k: ${ENTERPRISE_RAG_BM25_TOP_K:20}
       connect-timeout-ms: ${ENTERPRISE_RAG_BM25_CONNECT_TIMEOUT_MS:1000}
       query-timeout-ms: ${ENTERPRISE_RAG_BM25_QUERY_TIMEOUT_MS:3000}
       max-retries: ${ENTERPRISE_RAG_BM25_MAX_RETRIES:0}
@@ -85,23 +84,12 @@ enterprise:
       max-chars-per-candidate: ${ENTERPRISE_RAG_RERANKER_MAX_CHARS:1600}
     contextual:
       enabled: ${ENTERPRISE_RAG_CONTEXTUAL_ENABLED:false}
-      fail-open: ${ENTERPRISE_RAG_CONTEXTUAL_FAIL_OPEN:false}
+      fail-open: ${ENTERPRISE_RAG_CONTEXTUAL_FAIL_OPEN:true}
       max-document-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_DOCUMENT_CHARS:60000}
       max-prefix-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_PREFIX_CHARS:800}
-    agentic:
-      enabled: ${ENTERPRISE_RAG_AGENTIC_ENABLED:false}
-      max-rewritten-queries: ${ENTERPRISE_RAG_AGENTIC_MAX_QUERIES:2}
-      min-initial-hits: ${ENTERPRISE_RAG_AGENTIC_MIN_INITIAL_HITS:3}
-      long-query-chars: ${ENTERPRISE_RAG_AGENTIC_LONG_QUERY_CHARS:180}
-      snippet-chars: ${ENTERPRISE_RAG_AGENTIC_SNIPPET_CHARS:500}
     admin-token: ${ENTERPRISE_RAG_ADMIN_TOKEN:}
-    vector-backend: ${ENTERPRISE_RAG_VECTOR_BACKEND:PGVECTOR}
-    active-corpus-id: ${ENTERPRISE_RAG_ACTIVE_CORPUS_ID:}
     embedding-model: ${AI_EMBEDDING_MODEL:local-embedding-model}
     embedding-dimensions: ${ENTERPRISE_RAG_EMBEDDING_DIMENSIONS:1024}
-    worker-batch-size: ${ENTERPRISE_RAG_WORKER_BATCH_SIZE:10}
-    worker-concurrency: ${ENTERPRISE_RAG_WORKER_CONCURRENCY:1}
-    max-retries: ${ENTERPRISE_RAG_MAX_RETRIES:5}
   feedback:
     enabled: ${ENTERPRISE_RAG_FEEDBACK_ENABLED:true}
     async-sample-rate: ${ENTERPRISE_RAG_ASYNC_SAMPLE_RATE:0.02}

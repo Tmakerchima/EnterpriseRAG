@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .models import canonical_hash, load_jsonl
+
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -21,7 +23,14 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         "performance": load_json(run_dir / "performance-metrics.json"),
     }
     comparison = load_json(run_dir / "comparison.json")
-    valid = bool(manifest) and manifest.get("dataset_hash") and manifest.get("config_hash") and manifest.get("status") not in {"INVALID_RUN"}
+    case_file = run_dir / "cases.jsonl"
+    case_hash_matches = True
+    if manifest.get("cases_hash") and case_file.exists():
+        case_hash_matches = canonical_hash(load_jsonl(case_file)) == manifest.get("cases_hash")
+    valid = (bool(manifest) and manifest.get("dataset_hash") and manifest.get("config_hash")
+             and manifest.get("status") not in {"INVALID_RUN"} and case_hash_matches)
+    if not case_hash_matches:
+        manifest = {**manifest, "status": "INVALID_RUN", "invalid_reason": "cases_hash_mismatch"}
     return {"run_validity": "MEASURED" if valid else "INVALID_RUN", "manifest": manifest, "metrics": metrics, "layers": layers,
             "comparison": comparison, "synthetic_fixture": manifest.get("profile") == "smoke"}
 

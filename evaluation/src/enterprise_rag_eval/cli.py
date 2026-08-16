@@ -88,11 +88,16 @@ def collect_case(api_base: str, case: EvaluationCase, strategy: str, role: str) 
     with urllib.request.urlopen(request, timeout=90) as response:
         raw = response.read().decode("utf-8")
     answer, sources, metrics, error = collect_messages([raw])
+    chunk_ids = [str(source.get("chunk_id")) for source in sources if source.get("chunk_id")]
+    final_document_ids = [str(source.get("document_id")) for source in sources]
+    candidate_document_ids = [str(value) for value in metrics.get("candidate_document_ids", final_document_ids)]
+    candidate_chunk_ids = [str(value) for value in metrics.get("candidate_chunk_ids", chunk_ids)]
     return {"case_id": case.case_id, "question": case.question, "answer": answer,
-            "document_ids": [str(source.get("document_id")) for source in sources],
-            "final_document_ids": [str(source.get("document_id")) for source in sources],
+            "document_ids": candidate_document_ids,
+            "final_document_ids": final_document_ids,
+            "chunk_ids": candidate_chunk_ids, "final_chunk_ids": chunk_ids,
             "contexts": [str(source.get("chunk", "")) for source in sources],
-            "citations": [str(source.get("chunk_id")) for source in sources], "metrics": metrics,
+            "citations": chunk_ids, "metrics": metrics,
             "request_id": request_id, "trace_id": trace_id, "error": error}
 
 
@@ -102,8 +107,11 @@ def collect(args: argparse.Namespace) -> int:
     scope = json.loads(args.scope_manifest.read_text(encoding="utf-8")) if args.scope_manifest else {}
     scope.pop("outputs", None)
     target = _target_metadata(args.api_base)
+    selected_cases = cases[:args.limit] if args.limit else cases
+    case_payload = [case.to_dict() for case in selected_cases]
     manifest = {"manifest_version": "enterprise-rag.run.v1", "status": "MEASURED", "profile": args.profile,
                 "run_id": args.out.name, "dataset_hash": sha256_file(args.cases),
+                "cases_hash": canonical_hash(case_payload),
                 "dataset_version": sorted({case.dataset_version for case in cases}),
                 "config_hash": canonical_hash({"strategy": args.strategy, "role": args.role,
                                                "api_base": args.api_base, "scope": scope, "target": target}),
@@ -114,7 +122,6 @@ def collect(args: argparse.Namespace) -> int:
     random.seed(args.seed)
     predictions: list[dict[str, Any]] = []
     traces: list[dict[str, Any]] = []
-    selected_cases = cases[:args.limit] if args.limit else cases
     for index, case in enumerate(selected_cases, start=1):
         try:
             prediction = collect_case(args.api_base, case, args.strategy, args.role)
@@ -123,6 +130,8 @@ def collect(args: argparse.Namespace) -> int:
                            "request_id": prediction["request_id"], "trace_id": prediction["trace_id"],
                            "candidate_document_ids": prediction["document_ids"],
                            "final_document_ids": prediction["final_document_ids"], "judge_status": "NOT_EXECUTED",
+                           "candidate_chunk_ids": prediction.get("chunk_ids", []),
+                           "final_chunk_ids": prediction.get("final_chunk_ids", []),
                            "gold_valid": True, "coverage_status": "fully_supported" if case.expected_document_ids else "unsupported",
                            "backend_fallback": bool(prediction.get("metrics", {}).get("fallback")),
                            "backend_mismatch": bool(prediction.get("metrics", {}).get("backend_mismatch"))})
@@ -137,7 +146,7 @@ def collect(args: argparse.Namespace) -> int:
         print(f"collected {index}/{len(selected_cases)} {case.case_id}", file=sys.stderr, flush=True)
     write_jsonl(args.out / "predictions.jsonl", predictions)
     write_jsonl(args.out / "traces.jsonl", traces)
-    write_jsonl(args.out / "cases.jsonl", [case.to_dict() for case in selected_cases])
+    write_jsonl(args.out / "cases.jsonl", case_payload)
     _json(args.out / "run-manifest.json", manifest)
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
     return 0
@@ -248,8 +257,8 @@ def smoke(out_dir: Path | None = None) -> int:
     fixture = Path(__file__).parents[2] / "fixtures" / "smoke-cases.jsonl"
     cases = load_cases(fixture)
     predictions = {
-        "smoke-1": {"answer": "The upload limit is 10 MB.", "document_ids": ["doc-upload"], "final_document_ids": ["doc-upload"], "contexts": ["The upload limit is 10 MB."], "citations": ["chunk-upload"]},
-        "smoke-2": {"answer": "Insufficient evidence.", "document_ids": [], "final_document_ids": [], "abstained": True, "contexts": [], "citations": []},
+        "smoke-1": {"answer": "The upload limit is 10 MB.", "document_ids": ["doc-upload"], "final_document_ids": ["doc-upload"], "chunk_ids": ["chunk-upload"], "final_chunk_ids": ["chunk-upload"], "contexts": ["The upload limit is 10 MB."], "citations": ["chunk-upload"]},
+        "smoke-2": {"answer": "Insufficient evidence.", "document_ids": [], "final_document_ids": [], "chunk_ids": [], "final_chunk_ids": [], "abstained": True, "contexts": [], "citations": []},
     }
     retrieval = score_retrieval(cases, predictions)
     generation = score_generation(cases, predictions)
@@ -267,6 +276,7 @@ def smoke(out_dir: Path | None = None) -> int:
             "profile": "smoke",
             "run_id": out_dir.name,
             "dataset_hash": sha256_file(fixture),
+            "cases_hash": canonical_hash([case.to_dict() for case in cases]),
             "dataset_version": sorted({case.dataset_version for case in cases}),
             "config_hash": canonical_hash({"fixture": "synthetic-smoke", "strategy": "HYBRID"}),
             "strategy": "HYBRID",

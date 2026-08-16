@@ -12,5 +12,6 @@ class EnterpriseAccessContextTest {
                 .isEqualTo(new EnterpriseAccessContext("engineering", "tenant-a", "engineering"));
         assertThat(EnterpriseAccessContext.from("not-a-role", "tenant-a").role()).isEqualTo("public");
         assertThat(EnterpriseAccessContext.from("ADMIN", "").isAdmin()).isTrue();
+        assertThat(EnterpriseAccessContext.from("ADMIN", "").tenantId()).isEqualTo("default");
     }
 }

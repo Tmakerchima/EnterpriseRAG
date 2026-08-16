@@ -14,7 +14,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class EnterpriseRetrievalService {
@@ -102,7 +106,15 @@ public class EnterpriseRetrievalService {
      */
     public EnterpriseRetrievalResult retrieve(String query, EnterpriseAccessContext access,
                                               EnterpriseRetrievalStrategy strategy) {
+        if (access == null || access.tenantId() == null || access.tenantId().isBlank()) {
+            throw new IllegalArgumentException("retrieval requires a tenant-scoped access context");
+        }
         String safeQuery = query == null ? "" : query.trim();
+        EnterpriseRetrievalStrategy safeStrategy = strategy == null
+                ? EnterpriseRetrievalStrategy.HYBRID : strategy;
+        boolean useVector = usesVector(safeStrategy);
+        boolean useKeyword = usesKeyword(safeStrategy);
+        boolean shouldRerank = safeStrategy == EnterpriseRetrievalStrategy.HYBRID_RERANK && rerankEnabled;
         List<EnterpriseSearchHit> vectorHits = List.of();
         List<EnterpriseSearchHit> keywordHits = List.of();
         EnterpriseLexicalSearchResult lexicalResult = EnterpriseLexicalSearchResult.of(List.of(), "NOT_USED");
@@ -113,8 +125,7 @@ public class EnterpriseRetrievalService {
         long ftsMs = 0;
 
         // 只有需要语义检索的策略才调用 Embedding；向量失败时记录 fallback，不伪造结果。
-        if (strategy == EnterpriseRetrievalStrategy.VECTOR || strategy == EnterpriseRetrievalStrategy.HYBRID
-                || strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK) {
+        if (useVector) {
             long started = System.nanoTime();
             try {
                 vectorHits = repository.searchVector(embeddingModel.embed(safeQuery), access, vectorTopK,
@@ -128,8 +139,7 @@ public class EnterpriseRetrievalService {
         }
 
         // KEYWORD 代表配置的 lexical backend：当前生产是 PostgreSQL FTS，未来可切 ParadeDB BM25。
-        if (strategy == EnterpriseRetrievalStrategy.KEYWORD || strategy == EnterpriseRetrievalStrategy.HYBRID
-                || strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK) {
+        if (useKeyword) {
             long started = System.nanoTime();
             try {
                 // KEYWORD 在这里代表“配置的 lexical backend”：生产可为 BM25，故不再直接调用 FTS repository。
@@ -146,90 +156,69 @@ public class EnterpriseRetrievalService {
         // 向量 cosine 分数与 FTS/BM25 分数不在同一量纲，混合时只融合排名而不直接相加分数。
         long rrfStarted = System.nanoTime();
         List<EnterpriseSearchHit> candidates;
-        if (strategy == EnterpriseRetrievalStrategy.VECTOR) candidates = vectorHits;
-        else if (strategy == EnterpriseRetrievalStrategy.KEYWORD) candidates = keywordHits;
+        if (safeStrategy == EnterpriseRetrievalStrategy.VECTOR) candidates = vectorHits;
+        else if (safeStrategy == EnterpriseRetrievalStrategy.KEYWORD) candidates = keywordHits;
         // Vector cosine score 与 BM25 score 不在同一数值尺度，不能直接加权；混合策略只按名次做 RRF。
         else candidates = rrfFusion.fuse(vectorHits, keywordHits, rrfK, Math.max(finalTopK * 3, finalTopK));
         long rrfMs = elapsedMs(rrfStarted);
 
         // reranker 只处理已经完成 ACL 过滤的有限候选；失败时保留 RRF 顺序。
         long rerankStarted = System.nanoTime();
-        if (strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK && rerankEnabled) {
+        if (shouldRerank) {
             try {
-                candidates = reranker.rerank(safeQuery, candidates);
+                // A reranker may reorder ACL-approved hits, never add a new
+                // hit. This keeps the authorization boundary owned by SQL.
+                candidates = retainOriginalCandidates(candidates, reranker.rerank(safeQuery, candidates));
             } catch (Exception e) {
                 rerankerFailed = true;
                 log.warn("Enterprise reranker failed; using RRF result: {}", e.getMessage());
             }
         }
-        long rerankMs = strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK && rerankEnabled ? elapsedMs(rerankStarted) : 0;
+        long rerankMs = shouldRerank ? elapsedMs(rerankStarted) : 0;
 
         // 所有候选在这里已经过 ACL；只截断原始 content，绝不把 contextual prefix 送进回答证据。
         List<EnterpriseSearchHit> finalHits = limitContext(candidates);
         String retrievalFallback = fallback(vectorFailed, keywordFailed, rerankerFailed);
         retrievalFallback = mergeFallback(retrievalFallback, lexicalResult.fallbackReason());
-        return new EnterpriseRetrievalResult(finalHits, strategy,
+        return new EnterpriseRetrievalResult(finalHits, safeStrategy,
                 new EnterpriseRetrievalMetrics(vectorMs, ftsMs, rrfMs, rerankMs,
                         distinctCount(vectorHits, keywordHits), finalHits.size(),
                         retrievalFallback, 1, lexicalResult.backend(),
-                        contextTokenCount(finalHits), distinctDocuments(finalHits)));
+                        contextTokenCount(finalHits), distinctDocuments(finalHits)),
+                candidates.stream().map(EnterpriseSearchHit::externalId).distinct().toList(),
+                candidates.stream().map(EnterpriseSearchHit::chunkId).toList());
     }
 
-    /** Merges optional rewritten-query results while enforcing exactly the same access context. */
-    public EnterpriseRetrievalResult expand(EnterpriseRetrievalResult primary,
-                                            String originalQuery,
-                                            List<String> rewrittenQueries,
-                                            EnterpriseAccessContext access,
-                                            EnterpriseRetrievalStrategy strategy) {
-        if (rewrittenQueries == null || rewrittenQueries.isEmpty()) return primary;
-        List<EnterpriseRetrievalResult> results = new ArrayList<>();
-        results.add(primary);
-        rewrittenQueries.stream()
-                .filter(query -> query != null && !query.isBlank())
-                .map(String::trim)
-                .filter(query -> !query.equalsIgnoreCase(originalQuery))
-                .distinct()
-                .forEach(query -> results.add(retrieve(query, access, strategy)));
-        if (results.size() == 1) return primary;
+    private boolean usesVector(EnterpriseRetrievalStrategy strategy) {
+        return strategy == EnterpriseRetrievalStrategy.VECTOR
+                || strategy == EnterpriseRetrievalStrategy.HYBRID
+                || strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK;
+    }
 
-        long rrfStarted = System.nanoTime();
-        List<EnterpriseSearchHit> merged = rrfFusion.fuseAll(
-                results.stream().map(EnterpriseRetrievalResult::hits).toList(),
-                rrfK, Math.max(finalTopK * 3, finalTopK));
-        long mergeMs = elapsedMs(rrfStarted);
-        long rerankStarted = System.nanoTime();
-        if (strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK && rerankEnabled) {
-            try {
-                merged = reranker.rerank(originalQuery, merged);
-            } catch (Exception error) {
-                log.warn("Expanded Enterprise reranker failed; using fused result: {}", error.getMessage());
+    private boolean usesKeyword(EnterpriseRetrievalStrategy strategy) {
+        return strategy == EnterpriseRetrievalStrategy.KEYWORD
+                || strategy == EnterpriseRetrievalStrategy.HYBRID
+                || strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK;
+    }
+
+    private List<EnterpriseSearchHit> retainOriginalCandidates(List<EnterpriseSearchHit> original,
+                                                                List<EnterpriseSearchHit> reranked) {
+        if (reranked == null) throw new IllegalStateException("reranker returned no candidates");
+        Map<String, EnterpriseSearchHit> allowed = new LinkedHashMap<>();
+        original.forEach(hit -> allowed.put(hit.chunkId(), hit));
+        Set<String> seen = new HashSet<>();
+        List<EnterpriseSearchHit> safeOrder = new ArrayList<>();
+        reranked.forEach(hit -> {
+            if (hit != null && allowed.containsKey(hit.chunkId()) && seen.add(hit.chunkId())) {
+                safeOrder.add(hit);
             }
-        }
-        long mergeRerankMs = strategy == EnterpriseRetrievalStrategy.HYBRID_RERANK && rerankEnabled
-                ? elapsedMs(rerankStarted) : 0;
-        List<EnterpriseSearchHit> finalHits = limitContext(merged);
-        EnterpriseRetrievalMetrics metrics = new EnterpriseRetrievalMetrics(
-                results.stream().mapToLong(result -> result.metrics().vectorMs()).sum(),
-                results.stream().mapToLong(result -> result.metrics().ftsMs()).sum(),
-                results.stream().mapToLong(result -> result.metrics().rrfMs()).sum() + mergeMs,
-                results.stream().mapToLong(result -> result.metrics().rerankMs()).sum() + mergeRerankMs,
-                (int) results.stream().flatMap(result -> result.hits().stream())
-                        .map(EnterpriseSearchHit::chunkId).distinct().count(),
-                finalHits.size(), combineFallback(results), results.size(), combineLexicalBackend(results),
-                contextTokenCount(finalHits), distinctDocuments(finalHits));
-        return new EnterpriseRetrievalResult(finalHits, strategy, metrics);
-    }
-
-    private String combineLexicalBackend(List<EnterpriseRetrievalResult> results) {
-        return results.stream().map(result -> result.metrics().lexicalBackend())
-                .filter(value -> value != null && !value.isBlank())
-                .distinct().reduce((left, right) -> left + "," + right).orElse("NOT_USED");
-    }
-
-    private String combineFallback(List<EnterpriseRetrievalResult> results) {
-        return results.stream().map(result -> result.metrics().fallback())
-                .filter(value -> value != null && !value.isBlank())
-                .distinct().reduce((left, right) -> left + "," + right).orElse(null);
+        });
+        original.forEach(hit -> {
+            if (seen.add(hit.chunkId())) safeOrder.add(hit);
+        });
+        return java.util.stream.IntStream.range(0, safeOrder.size())
+                .mapToObj(index -> safeOrder.get(index).withScore(safeOrder.get(index).score(), index + 1))
+                .toList();
     }
 
     private String fallback(boolean vectorFailed, boolean keywordFailed, boolean rerankerFailed) {

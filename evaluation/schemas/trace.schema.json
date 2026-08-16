@@ -11,6 +11,8 @@
     "trace_id": {"type": "string"},
     "candidate_document_ids": {"type": "array", "items": {"type": "string"}},
     "final_document_ids": {"type": "array", "items": {"type": "string"}},
+    "candidate_chunk_ids": {"type": "array", "items": {"type": "string"}},
+    "final_chunk_ids": {"type": "array", "items": {"type": "string"}},
     "coverage_status": {"enum": ["fully_supported", "partially_supported", "unsupported", "unknown"]},
     "judge_status": {"enum": ["MEASURED", "NOT_EXECUTED", "INVALID_RUN"]}
   },
