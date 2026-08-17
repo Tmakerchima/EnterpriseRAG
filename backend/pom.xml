@@ -53,12 +53,6 @@
             <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
-        <!-- Spring AI：PGVector 类型与本地向量存储支持；企业查询链路使用显式 SQL ACL。 -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
-        </dependency>
-
         <!-- Supabase 使用 PostgreSQL 协议 -->
         <dependency>
             <groupId>org.postgresql</groupId>

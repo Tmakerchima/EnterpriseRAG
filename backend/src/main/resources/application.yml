@@ -27,13 +27,6 @@ spring:
       embedding:
         options:
           model: ${AI_EMBEDDING_MODEL:local-embedding-model}
-    vectorstore:
-      pgvector:
-        index-type: HNSW
-        distance-type: COSINE_DISTANCE
-        dimensions: ${ENTERPRISE_RAG_EMBEDDING_DIMENSIONS:1024}
-        initialize-schema: false
-
 management:
   endpoints:
     web:
@@ -53,9 +46,6 @@ management:
 enterprise:
   rag:
     enabled: ${ENTERPRISE_RAG_ENABLED:true}
-    max-documents: ${ENTERPRISE_RAG_MAX_DOCUMENTS:1000}
-    max-chunk-tokens: ${ENTERPRISE_RAG_MAX_CHUNK_TOKENS:700}
-    chunk-overlap-tokens: ${ENTERPRISE_RAG_CHUNK_OVERLAP_TOKENS:80}
     vector-top-k: ${ENTERPRISE_RAG_VECTOR_TOP_K:12}
     keyword-top-k: ${ENTERPRISE_RAG_KEYWORD_TOP_K:12}
     final-top-k: ${ENTERPRISE_RAG_FINAL_TOP_K:5}
@@ -82,14 +72,7 @@ enterprise:
       mode: ${ENTERPRISE_RAG_RERANKER_MODE:HEURISTIC}
       max-candidates: ${ENTERPRISE_RAG_RERANKER_MAX_CANDIDATES:30}
       max-chars-per-candidate: ${ENTERPRISE_RAG_RERANKER_MAX_CHARS:1600}
-    contextual:
-      enabled: ${ENTERPRISE_RAG_CONTEXTUAL_ENABLED:false}
-      fail-open: ${ENTERPRISE_RAG_CONTEXTUAL_FAIL_OPEN:true}
-      max-document-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_DOCUMENT_CHARS:60000}
-      max-prefix-chars: ${ENTERPRISE_RAG_CONTEXTUAL_MAX_PREFIX_CHARS:800}
     admin-token: ${ENTERPRISE_RAG_ADMIN_TOKEN:}
-    embedding-model: ${AI_EMBEDDING_MODEL:local-embedding-model}
-    embedding-dimensions: ${ENTERPRISE_RAG_EMBEDDING_DIMENSIONS:1024}
   feedback:
     enabled: ${ENTERPRISE_RAG_FEEDBACK_ENABLED:true}
     async-sample-rate: ${ENTERPRISE_RAG_ASYNC_SAMPLE_RATE:0.02}

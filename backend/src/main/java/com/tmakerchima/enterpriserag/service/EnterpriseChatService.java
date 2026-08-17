@@ -71,10 +71,6 @@ public class EnterpriseChatService {
      * @param request 前端提交的问题、角色、租户和检索策略
      * @return SSE 字符串流；错误也会被编码为 {@code @@ERROR@@} 帧
      */
-    public Flux<String> streamAnswer(ChatRequest request) {
-        return streamAnswer(request, null, null);
-    }
-
     public Flux<String> streamAnswer(ChatRequest request, String requestedRequestId, String requestedTraceId) {
         return Flux.defer(() -> {
             // defer 使每次订阅都重新创建 requestId、计时器和检索结果，避免多个订阅共享状态。

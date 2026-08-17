@@ -45,5 +45,5 @@ chat controller -> ChatService -> RetrievalService.retrieve
 
 No migration was removed or changed. Tenant filtering was tightened from a
 nullable bypass to an explicit tenant equality in all three retrieval SQL
-implementations. The Python worker remains the canonical bulk ingestion path;
-the Java ingestion endpoint remains a deprecated compatibility canary.
+implementations. The Python worker is the only ingestion path; the deprecated
+Java compatibility endpoint and its repository-only importer were removed.

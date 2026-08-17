@@ -45,20 +45,8 @@ public class EnterpriseHealthController {
             body.put("vector", "UNKNOWN");
             body.put("documents", 0);
             body.put("chunks", 0);
-            body.put("message", "Apply V1__enterprise_rag.sql and V2__enterprise_rag_generations.sql before ingesting enterprise documents");
+            body.put("message", "Apply V1__enterprise_rag.sql and V2__enterprise_rag_generations.sql before reading the enterprise corpus");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
-        }
-    }
-
-    @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> stats() {
-        try {
-            Map<String, Object> body = new LinkedHashMap<>(corpusService.stats());
-            addLexicalHealth(body);
-            return ResponseEntity.ok(body);
-        } catch (DataAccessException error) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("status", "MIGRATION_REQUIRED", "message", "Enterprise corpus migrations are not applied"));
         }
     }
 

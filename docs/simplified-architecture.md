@@ -54,17 +54,15 @@ versioned SSE: sources -> token -> metrics -> done
 - `EnterpriseChatService` only validates the request, calls retrieval, builds a
   grounded prompt, emits sources/metrics and calls the model when evidence
   exists. It never knows SQL, FTS, BM25 or reranker details.
-- `EnterpriseChunkContextualizer` is indexing-only and disabled by default.
-  Its generated prefix is never placed in answer evidence, and its fingerprint
-  participates in incremental reindex decisions.
+- The Python worker keeps generated contextual prefixes separate from source
+  evidence; the Java online path only reads the resulting ACTIVE corpus.
 
 ## Ingestion decision
 
-`evaluation/enterprise_rag_worker.py` is the canonical production bulk path:
+`evaluation/enterprise_rag_worker.py` is the only ingestion path:
 it is restartable, writes only to a STAGING corpus, keeps a checkpoint and
-requires explicit activation. The Java `/api/enterprise/admin/ingest` endpoint
-remains only as a deprecated, token-protected small-canary compatibility path;
-it is not the production bulk loader.
+requires explicit activation. The Java service only exposes corpus lifecycle
+operations (`create`, `activate`, and `rollback`).
 
 ## Evaluation decision
 

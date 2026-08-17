@@ -16,15 +16,6 @@ public interface EnterpriseLexicalRetriever {
     /** 当前配置的后端名称，例如 POSTGRES_FTS 或 PARADEDB_BM25。 */
     String configuredBackend();
 
-    /** 与部署文档中的 backendName 术语保持兼容；路由器返回 configured backend。 */
-    default String backendName() {
-        return configuredBackend();
-    }
-
     /** 健康检查只返回能力状态，不返回连接串、用户名或密码。 */
     EnterpriseLexicalHealth health();
-
-    default boolean healthy() {
-        return health().healthy();
-    }
 }

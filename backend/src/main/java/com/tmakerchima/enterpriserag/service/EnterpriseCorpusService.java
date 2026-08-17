@@ -131,12 +131,6 @@ public class EnterpriseCorpusService {
         if (updated != 1) throw new IllegalStateException("Corpus cannot be activated for rollback: " + corpusId);
     }
 
-    public void setState(UUID corpusId, String state) {
-        int updated = jdbcTemplate.update("UPDATE enterprise_corpora SET state = ?, retired_at = CASE WHEN ? = 'RETIRED' THEN now() ELSE retired_at END WHERE corpus_id = ?",
-                state, state, corpusId);
-        if (updated != 1) throw new IllegalArgumentException("Unknown corpus: " + corpusId);
-    }
-
     private void requireCorpus(UUID corpusId) {
         Long count = corpusId == null ? 0L : jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM enterprise_corpora WHERE corpus_id = ?", Long.class, corpusId);

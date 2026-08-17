@@ -26,7 +26,7 @@ class EnterpriseRetrievalServiceTest {
         when(repository.searchVector(any(), any(), eq(12), eq(0.2))).thenReturn(List.of(shared, vector));
         when(repository.searchKeyword(anyString(), any(), eq(12))).thenReturn(List.of(shared));
 
-        EnterpriseRetrievalService service = service(repository, embeddingModel, new NoOpReranker());
+        EnterpriseRetrievalService service = service(repository, embeddingModel, (query, candidates) -> List.copyOf(candidates));
         EnterpriseRetrievalResult result = service.retrieve("upload limits",
                 EnterpriseAccessContext.from("engineering", "default"), EnterpriseRetrievalStrategy.HYBRID);
 
@@ -46,7 +46,7 @@ class EnterpriseRetrievalServiceTest {
         when(repository.searchVector(any(), eq(access), eq(12), eq(0.2))).thenReturn(List.of());
         when(repository.searchKeyword(anyString(), eq(access), eq(12))).thenReturn(List.of());
 
-        service(repository, embeddingModel, new NoOpReranker())
+        service(repository, embeddingModel, (query, candidates) -> List.copyOf(candidates))
                 .retrieve("payroll", access, EnterpriseRetrievalStrategy.HYBRID);
 
         verify(repository).searchVector(any(), eq(access), eq(12), eq(0.2));
@@ -61,7 +61,7 @@ class EnterpriseRetrievalServiceTest {
         when(embeddingModel.embed(anyString())).thenThrow(new IllegalStateException("offline"));
         when(repository.searchKeyword(anyString(), any(), eq(12))).thenReturn(List.of(keyword));
 
-        EnterpriseRetrievalResult result = service(repository, embeddingModel, new NoOpReranker())
+        EnterpriseRetrievalResult result = service(repository, embeddingModel, (query, candidates) -> List.copyOf(candidates))
                 .retrieve("fallback", EnterpriseAccessContext.from("public", null), EnterpriseRetrievalStrategy.HYBRID);
 
         assertThat(result.hits()).singleElement().extracting(EnterpriseSearchHit::chunkId).isEqualTo("keyword");
@@ -143,7 +143,7 @@ class EnterpriseRetrievalServiceTest {
         when(repository.searchVector(any(), any(), eq(12), eq(0.2)))
                 .thenReturn(List.of(first, second, third, fourth, other));
 
-        EnterpriseRetrievalResult result = service(repository, embeddingModel, new NoOpReranker())
+        EnterpriseRetrievalResult result = service(repository, embeddingModel, (query, candidates) -> List.copyOf(candidates))
                 .retrieve("query", EnterpriseAccessContext.from("engineering", "default"),
                         EnterpriseRetrievalStrategy.VECTOR);
 

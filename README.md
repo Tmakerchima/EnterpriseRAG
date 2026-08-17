@@ -23,7 +23,7 @@ npm ci
 npm run build
 ```
 
-应用启动前需要把 `backend/src/main/resources/db/migration/V1__...` 到 `V5__...` 以受控方式应用到目标 PostgreSQL。`POST /api/enterprise/chat` 返回版本化 SSE：`sources`、`token`、`metrics`、`error`、`done`；每个请求都有 `request_id` 和 `trace_id`。管理员入库、corpus activate/rollback 和反馈接口见 [evaluation runbook](docs/evaluation-runbook.md)。
+应用启动前需要把 `backend/src/main/resources/db/migration/V1__...` 到 `V5__...` 以受控方式应用到目标 PostgreSQL。`POST /api/enterprise/chat` 返回版本化 SSE：`sources`、`token`、`metrics`、`error`、`done`；每个请求都有 `request_id` 和 `trace_id`。Corpus activate/rollback 和反馈接口见 [evaluation runbook](docs/evaluation-runbook.md)。
 
 ## Architecture and evaluation
 
@@ -32,7 +32,7 @@ npm run build
 - 评测：`evaluation` 是可安装 Python package。确定性 retrieval/generation/citation/security/performance 指标与可选 DeepEval judge 分离。
 - 闭环：run manifest → 分层指标 → baseline/candidate compare → deterministic triage → 人工确认 → regression promotion。
 - 简化后的真实调用链见 [simplified architecture](docs/simplified-architecture.md)：一个 `retrieve` 入口，SQL 层 tenant/ACL，Vector + lexical → RRF → optional rerank → context budget → grounded chat。
-- 生产批量入库由 `evaluation/enterprise_rag_worker.py` canonical worker 负责；Java `/admin/ingest` 只保留为 token-protected、deprecated 的小规模兼容入口。
+- 生产批量入库统一由 `evaluation/enterprise_rag_worker.py` canonical worker 负责；Java 服务只管理 corpus 生命周期，不承载同步入库。
 
 常用命令：
 
