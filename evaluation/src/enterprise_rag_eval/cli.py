@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 import urllib.error
@@ -18,6 +19,7 @@ from .metrics import (
     score_performance,
     score_retrieval,
     score_security,
+    wilson_interval,
 )
 from .models import (
     EvaluationCase,
@@ -40,6 +42,57 @@ def _json(path: Path, value: Any) -> None:
 def _predictions(run_dir: Path) -> dict[str, dict[str, Any]]:
     path = run_dir / "predictions.jsonl"
     return {str(row["case_id"]): row for row in load_jsonl(path)} if path.exists() else {}
+
+
+def _judge_summary(rows: list[dict[str, Any]], threshold: float) -> dict[str, Any]:
+    measured = [row for row in rows if row.get("status") == "MEASURED" and row.get("score") is not None]
+    return {
+        "status": "MEASURED" if rows and len(measured) == len(rows) else "PARTIAL" if measured else "NOT_EXECUTED",
+        "total_cases": len(rows),
+        "measured_cases": len(measured),
+        "not_executed_cases": len(rows) - len(measured),
+        "passed_cases": sum(row.get("passed") is True for row in measured),
+        "failed_cases": sum(row.get("passed") is False for row in measured),
+        "mean_score": sum(float(row["score"]) for row in measured) / len(measured) if measured else None,
+        "threshold": threshold,
+        "judge_models": sorted({str(row["judge_model"]) for row in measured if row.get("judge_model")}),
+    }
+
+
+def _apply_judge_to_case_success(case_success_result: dict[str, Any], judge_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    judged = {str(row.get("case_id")): row for row in judge_rows if row.get("status") == "MEASURED"}
+    rows = []
+    for original in case_success_result.get("cases", []):
+        row = dict(original)
+        judge = judged.get(str(row.get("case_id")))
+        if row.get("outcome") == "NEEDS_REVIEW" and judge and judge.get("passed") is not None:
+            passed = bool(judge["passed"])
+            row.update({
+                "success": passed,
+                "outcome": "PASS" if passed else "FAIL",
+                "reasons": ["LLM_JUDGE_CONFIRMED" if passed else "LLM_JUDGE_REJECTED"],
+                "judge_score": judge.get("score"),
+                "judge_reason": judge.get("reason"),
+                "judge_model": judge.get("judge_model"),
+                "review_method": "LLM_AS_JUDGE",
+            })
+        rows.append(row)
+    successes = sum(row.get("success") is True for row in rows)
+    failures = sum(row.get("success") is False for row in rows)
+    pending = sum(row.get("success") is None for row in rows)
+    resolved = bool(rows) and pending == 0
+    return {
+        **case_success_result,
+        "status": "MEASURED" if resolved else "INCOMPLETE" if rows else "NOT_EXECUTED",
+        "successful_cases": successes,
+        "failed_cases": failures,
+        "pending_review_cases": pending,
+        "evidence_ready_cases": sum(row.get("success") is not False for row in rows),
+        "evidence_ready_rate": sum(row.get("success") is not False for row in rows) / len(rows) if rows else None,
+        "success_rate": successes / len(rows) if resolved else None,
+        "ci95": wilson_interval(successes, len(rows)) if resolved else None,
+        "cases": rows,
+    }
 
 
 def _target_metadata(api_base: str) -> dict[str, Any]:
@@ -97,6 +150,9 @@ def collect_case(api_base: str, case: EvaluationCase, strategy: str, role: str) 
             "final_document_ids": final_document_ids,
             "chunk_ids": candidate_chunk_ids, "final_chunk_ids": chunk_ids,
             "contexts": [str(source.get("chunk", "")) for source in sources],
+            "sources": [{key: source.get(key) for key in
+                         ("rank", "title", "document_id", "external_id", "chunk_id", "chunk")}
+                        for source in sources],
             "citations": chunk_ids, "metrics": metrics,
             "request_id": request_id, "trace_id": trace_id, "error": error}
 
@@ -170,10 +226,14 @@ def score_generation_command(args: argparse.Namespace) -> int:
         prediction = predictions.get(case.case_id)
         if prediction is None:
             continue
-        judge_rows.append(adapter.score(question=case.question, answer=str(prediction.get("answer", "")),
-                                       contexts=list(prediction.get("contexts", [])), expected=case.gold_answer, case_id=case.case_id).to_dict())
-    result["judge"] = {"status": "MEASURED" if any(row["status"] == "MEASURED" for row in judge_rows) else "NOT_EXECUTED",
-                       "results": judge_rows, "primary_framework": "DeepEval" if args.judge == "deepeval" else None}
+        judge_rows.append({"case_id": case.case_id, **adapter.score(
+            question=case.question, answer=str(prediction.get("answer", "")),
+            contexts=list(prediction.get("contexts", [])), expected=case.gold_answer,
+            case_id=case.case_id).to_dict()})
+    summary = _judge_summary(judge_rows, args.threshold)
+    result["judge"] = {**summary, "results": judge_rows,
+                       "primary_framework": "DeepEval" if args.judge == "deepeval" else None}
+    result["case_success"] = _apply_judge_to_case_success(result["case_success"], judge_rows)
     _json(args.run / "generation-metrics.json", result)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
@@ -324,7 +384,7 @@ def parser() -> argparse.ArgumentParser:
     collect_parser = commands.add_parser("collect"); collect_parser.add_argument("--cases", type=Path, required=True); collect_parser.add_argument("--api-base", default="http://localhost:8080"); collect_parser.add_argument("--out", type=Path, required=True); collect_parser.add_argument("--strategy", default="HYBRID"); collect_parser.add_argument("--role", default="admin"); collect_parser.add_argument("--limit", type=int); collect_parser.add_argument("--profile", default="smoke"); collect_parser.add_argument("--scope-manifest", type=Path); collect_parser.add_argument("--seed", type=int, default=17); collect_parser.set_defaults(handler=collect)
     retrieval_parser = commands.add_parser("score"); score_commands = retrieval_parser.add_subparsers(dest="score_command", required=True)
     retrieval = score_commands.add_parser("retrieval"); retrieval.add_argument("--run", type=Path, required=True); retrieval.add_argument("--cases", type=Path); retrieval.set_defaults(handler=score_retrieval_command)
-    generation = score_commands.add_parser("generation"); generation.add_argument("--run", type=Path, required=True); generation.add_argument("--cases", type=Path); generation.add_argument("--judge", choices=["none", "deepeval"], default="none"); generation.add_argument("--judge-model"); generation.add_argument("--threshold", type=float, default=0.9); generation.set_defaults(handler=score_generation_command)
+    generation = score_commands.add_parser("generation"); generation.add_argument("--run", type=Path, required=True); generation.add_argument("--cases", type=Path); generation.add_argument("--judge", choices=["none", "deepeval"], default=os.getenv("EVALUATION_JUDGE", "none")); generation.add_argument("--judge-model", default=os.getenv("EVALUATION_JUDGE_MODEL")); generation.add_argument("--threshold", type=float, default=float(os.getenv("EVALUATION_JUDGE_THRESHOLD", "0.9"))); generation.set_defaults(handler=score_generation_command)
     corpus = score_commands.add_parser("corpus"); corpus.add_argument("--run", type=Path, required=True); corpus.set_defaults(handler=score_corpus_command)
     security = score_commands.add_parser("security"); security.add_argument("--run", type=Path, required=True); security.set_defaults(handler=score_security_command)
     performance = score_commands.add_parser("performance"); performance.add_argument("--run", type=Path, required=True); performance.set_defaults(handler=score_performance_command)

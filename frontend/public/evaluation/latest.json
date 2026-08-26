@@ -14,7 +14,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What are the default size limits for file uploads and total request size for the new multipart upload support on the OpenAI-compatible API endpoints?",
+            "reference_answer": "The default limits are 10 MiB per file (max_file_size) and 50 MiB total per request (max_total_request_size) for multipart uploads on the OpenAI-compatible endpoints.",
+            "expected_document_ids": [
+              "dsid_ae068ee4aa9640159427cd941bef0238"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0010",
@@ -22,7 +28,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "How does the new alerting approach group model-serving requests by the stages they pass through to reduce noisy alerts and speed up root cause analysis?",
+            "reference_answer": "It adds a lightweight token_stage_cohort service that computes a deterministic \"cohort key\" for each invocation from stage-level signals (e.g., token counts per stage, KV-cache hit patterns, decode batch size) and keeps short-lived aggregates per cohort. An alert route-matrix generator then uses those cohort rollups to build a route × stage alert matrix that attributes SLO violations to the most likely pipeline stages and biases escalation to the top-k responsible stages, reducing per-route alert noise and speeding RCA.",
+            "expected_document_ids": [
+              "dsid_c1a6a71323c04c1ba5445aadea340362"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0020",
@@ -30,7 +42,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In the recent update to the chat completions compatibility adapter, how does the parameter normalizer handle a client sending max_tokens as null compared to leaving it out entirely?",
+            "reference_answer": "The normalizer treats an explicit `max_tokens: null` as \"unset,\" so it falls back to the model defaults. Leaving `max_tokens` out entirely likewise results in using the model defaults, rather than interpreting null as 0.",
+            "expected_document_ids": [
+              "dsid_1c53affffb4f477ca476bec3138b60eb"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0052",
@@ -38,7 +56,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What is the sampling policy for request routes of different telemetry priority levels in the new path-based observability change?",
+            "reference_answer": "The path-sampling policy is: always sample routes marked with telemetry priority == high, sample medium-priority routes probabilistically at 1%, and use an adaptive (rate-limited with burst tokens) sampling approach for low-priority routes.",
+            "expected_document_ids": [
+              "dsid_49215834c17d4f0c98d4ad11f62f0c9a"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0074",
@@ -46,7 +70,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "How does the new v1 chat compatibility layer handle invalid tool or function schemas, and what HTTP status does it return when validation fails?",
+            "reference_answer": "The compatibility layer validates forced tool/function calls against the registered schemas and fails closed if the schema is invalid. On validation failure, it returns an HTTP 422 with a structured error payload (and emits a telemetry event).",
+            "expected_document_ids": [
+              "dsid_8779ac72d6504759b701178632772f6c"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0075",
@@ -54,7 +84,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What change was introduced to prevent oscillations in the new GPU scratch memory allocator that can trigger repeated micro-batch splits?",
+            "reference_answer": "They added a per-model backoff cooldown mechanism in the AdaptiveScratchManager (via `cooldown_ms`) to prevent allocator oscillations that would otherwise trigger repeated micro-batch splits.",
+            "expected_document_ids": [
+              "dsid_caf02469a41c46cf8387713b83c628f3"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0097",
@@ -62,7 +98,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In the OpenAI Responses v3 compatibility work, how are overly large user-provided seeds handled to keep determinism, and where is the original seed stored for auditing?",
+            "reference_answer": "If a user-provided seed exceeds 64 bits, it is normalized by hashing it down with siphash64 (siphash64) to produce a deterministic 64-bit seed. The original unmodified seed is preserved for auditing in `compat_metadata.seed_raw`.",
+            "expected_document_ids": [
+              "dsid_6c58ddb8ecf543d89fca8352351dea29"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0103",
@@ -70,7 +112,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "How is the baseline token cost computed for the per-span cost delta metric in the new tracing observability change?",
+            "reference_answer": "The baseline token cost is computed using a rolling median of the first 32 tokens for the given route/model combination, and it's periodically recomputed by a background aggregator.",
+            "expected_document_ids": [
+              "dsid_47fa00c889fb4446b0481efea384a7ce"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0125",
@@ -78,7 +126,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "What is the formula used by the new autoscaling approach that combines a high-percentile request rate with request variability to compute effective demand, including the default weights?",
+            "reference_answer": "Effective demand is computed as: effective_demand = alpha * p95_rate + beta * sqrt(variance), with default weights alpha = 1.0 and beta = 0.5.",
+            "expected_document_ids": [
+              "dsid_302783937bc849ecb7ef7323233d1efe"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0127",
@@ -86,7 +140,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What is the phased rollout plan for the change that smooths dedicated autoscaling signals and adds an advisory gateway-to-controller backpressure mechanism?",
+            "reference_answer": "The rollout is staged: (1) ship feature-gated off by default, (2) enable on Canary Dedicated clusters for 48 hours, (3) enable for opt-in customers via a console toggle, and (4) turn it on by default after two weeks of stable metrics.",
+            "expected_document_ids": [
+              "dsid_dc9df99fcfd64f5f89791781b699610c"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0140",
@@ -94,7 +154,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "What is the minimum cache time-to-live safeguard that was added to the new automated policy recommendation service to prevent cold-start issues after deploys?",
+            "reference_answer": "A minimum cache TTL safeguard of 100ms (safety_floor_min_ttl=100ms) was added to help avoid cold-start storms after deploys.",
+            "expected_document_ids": [
+              "dsid_aa532b5a3c634229b9a068654b945c6c"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0146",
@@ -102,7 +168,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What change was introduced to reduce tail latency in a paged key value cache by defragmenting free space during frees and keeping frequently used key prefixes from being evicted?",
+            "reference_answer": "It introduced an opportunistic KV freelist defragmenter that compacts/coalesces adjacent free pages inline on the free path (with larger coalesces deferred to background) along with a bounded hot-prefix selective pinning policy that keeps the top-N frequently accessed key prefixes resident using LRU eviction.",
+            "expected_document_ids": [
+              "dsid_7764c4d15ed141ecbeaaecf606098288"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0148",
@@ -110,7 +182,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In the recent SDK update that added typed streaming errors and a reconnecting iterator API across Python, TypeScript, and Go, what package versions were released for each SDK?",
+            "reference_answer": "The update released SDK versions Python 1.8.0, TypeScript 2.3.0, and Go v0.9.1.",
+            "expected_document_ids": [
+              "dsid_707ad933d7fd447197439ed606abfb26"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0160",
@@ -118,7 +196,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What change reduced GPU memory use and improved first-token latency by prepacking INT8 weights and fusing smoothquant dequantization into the GEMM kernel without creating intermediate tensors?",
+            "reference_answer": "The PR \"prepack-int8-weights-and-smoothquant-fuse-with-kernel-lane-allocator\" introduced a new INT8 weight prepack module plus kernel adapter hooks to fuse smoothquant per-channel scaling directly into the GEMM launcher, avoiding intermediate dequant tensors and reducing both peak GPU memory and first-token latency.",
+            "expected_document_ids": [
+              "dsid_c84c8581594e47d49e82d024a6da915d"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0167",
@@ -126,7 +210,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What configuration option was added to let repositories explicitly allow Docker-in-Docker during the staged rollout of the new GitHub composite action CI setup?",
+            "reference_answer": "They added an opt-out configuration flag in `.github/ci-config.yml` called `allow_dind` (set it to `true`) to explicitly allow Docker-in-Docker during the rollout.",
+            "expected_document_ids": [
+              "dsid_9d1624818a004c53b3b7020412275cc0"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0180",
@@ -134,7 +224,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "In our rollout system, what is the name of the new mechanism that prevents a candidate release from getting full user traffic until a dry run with replayed requests and smoke checks has passed?",
+            "reference_answer": "It's the **TrafficEscrow** (the **traffic_escrow** service), which escrows routing/commit promotion and only releases it after a rehearse run with replayed requests and smoke checks succeeds.",
+            "expected_document_ids": [
+              "dsid_730ed8ee5fc84e0b9be761003b9a60d3"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0192",
@@ -142,7 +238,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In our GPU inference runtime, what change was introduced to cut the worst-case temporary device-memory spike when short and long requests are interleaved, especially for attention-heavy ops that used to grab per-op temp buffers?",
+            "reference_answer": "They added dynamic scratch reuse: a runtime scratch manager/allocator that lifetime-tags short-lived temporary buffers and reuses them across operators within the same execution frame, so attention/rotary/layernorm no longer allocate fresh per-op scratch and the transient device-memory spikes are reduced.",
+            "expected_document_ids": [
+              "dsid_a193f9b7483248ad86c52e684d98a760"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0232",
@@ -150,7 +252,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In our agent runtime, parallel tool responses sometimes stomp each other and the final structured payload varies run to run; where is the proposal that adds a deterministic way to combine overlapping JSON outputs plus per-invocation jittered exponential retry limits to prevent retry storms?",
+            "reference_answer": "It's in the proposal/PR titled \"tool-result-merge-policy-and-exponential-backoff-for-parallel-calls,\" which introduces deterministic tool result merge policies (including depth-aware merge_patch) and a per-invocation RetryPolicy with jittered exponential backoff and an overall retry_budget_ms to prevent retry storms.",
+            "expected_document_ids": [
+              "dsid_b253f5cc715f4d47bdd578edd6f2f19e"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0246",
@@ -158,7 +266,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "Where are the small on-node files stored that capture the GPU communication tuning fingerprints, and what should ops do with them during cluster upgrades?",
+            "reference_answer": "The NCCL autotuner stores its small fingerprint files on-node in `/var/lib/redwood/nccl-fingerprints`. During cluster upgrades, ops should rotate and/or back up these files as part of the upgrade process.",
+            "expected_document_ids": [
+              "dsid_6f0be39ff1ae49c19ce0662bdd6de352"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0266",
@@ -166,7 +280,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "In the recent SDK update that made streaming behave the same across Python, TypeScript, and Go, what is the new wrapper layer called that handles automatic reauthentication on expired credentials and lets a client resume a dropped stream using a small persisted checkpoint token?",
+            "reference_answer": "It's called the **SessionDecorator**-a lightweight wrapper around the stream iterator that automatically refreshes expired credentials and supports resuming via a small persisted **ResumeToken v2** checkpoint token.",
+            "expected_document_ids": [
+              "dsid_415b72b7d40a405e87b9671946e894d8"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0276",
@@ -174,7 +294,13 @@
             "reasons": [
               "REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT"
             ],
-            "success": false
+            "success": false,
+            "question": "In our model serving stack, what change was proposed to reduce cost swings when traffic mixes tiny chat style requests with much longer generations, by dynamically choosing between a few preset group sizes under latency budgets instead of waiting for one fixed threshold?",
+            "reference_answer": "The PR proposed adding a conservative \"stepped\" batching policy to the serving scheduler, where you configure an ordered list of batch sizes (e.g., 1, 4, 16) with per-step max-latency budgets, and the runtime opportunistically serves smaller batches under tight latency SLOs and ramps to larger batches when throughput allows instead of waiting for a single fixed max-batch threshold.",
+            "expected_document_ids": [
+              "dsid_ee6c23c178dc428bbd71af6526c70251"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0290",
@@ -182,7 +308,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "In the service that lets clients discover which language models are available, where is the advisory 0 to 100 score documented that helps automatic selection based on feature match between our capability names and an OpenAI style interface?",
+            "reference_answer": "The advisory 0-100 \"compatibility_score\" is documented in the expanded docstring for the compatibility mapping, and the release notes point to `docs/api/model-catalog.md` for examples of the field in the model catalog API.",
+            "expected_document_ids": [
+              "dsid_1b7a5d6230f84eb0a38a97da0e0ce05c"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0322",
@@ -190,7 +322,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "What config flag controls enabling the bandwidth-aware fanout planner for TP allreduce on heterogeneous link clusters, and what other new components are called out in the release notes as helping reduce comm and compute stalls?",
+            "reference_answer": "The bandwidth-aware fanout planner is controlled by the config flag \"runtime.bandwidth_fanout.enabled\". The release notes also call out KV-shard coalescing, a small stride-optimized memcpy kernel, and stream mapping as new components that help reduce communication/computation stalls.",
+            "expected_document_ids": [
+              "dsid_bab6aba4c06e41e9ae46b9355f644a7a"
+            ],
+            "sources": []
           },
           {
             "case_id": "qst_0339",
@@ -198,7 +336,13 @@
             "reasons": [
               "SEMANTIC_FACT_REVIEW_REQUIRED"
             ],
-            "success": null
+            "success": null,
+            "question": "For the Usage Insights reconciliation drift alert, what drift percentage and time window trigger warn vs page, and which severity level includes workspace_id in the alert labels?",
+            "reference_answer": "The reconciliation drift alert warns when the absolute drift exceeds 0.5% for 2 hours, and pages when it exceeds 1.0% for 1 hour. The warn-level alert includes workspace_id in its labels, while the page-level alert does not.",
+            "expected_document_ids": [
+              "dsid_81208556437644a0a4dedf168baf81b5"
+            ],
+            "sources": []
           }
         ],
         "ci95": null,
@@ -441,7 +585,7 @@
       "eligible_cases": 24,
       "exact_match": {
         "ci95": [
-          1.3877787807814457e-17,
+          1.3877787807814457E-17,
           0.13797620467498017
         ],
         "count": 24,
@@ -756,7 +900,7 @@
       },
       "verbatim_fact_coverage": {
         "ci95": [
-          1.3877787807814457e-17,
+          1.3877787807814457E-17,
           0.13797620467498017
         ],
         "count": 24,
@@ -956,7 +1100,7 @@
   },
   "manifest": {
     "config_hash": "1dbb109645b6eecf2fa7bbbe93c70caaba9da8148b8ba4fb552ddbc7636685c1",
-    "created_at": "2026-08-14T21:01:51.959350+00:00",
+    "created_at": "2026-08-15T05:01:51.95935+08:00",
     "dataset_hash": "56e6279231421f5800be2d1d3825e225217bbe55449a4f47f3d6014f4942dba6",
     "dataset_version": [
       "EnterpriseRAG-Bench-v1.0.0"

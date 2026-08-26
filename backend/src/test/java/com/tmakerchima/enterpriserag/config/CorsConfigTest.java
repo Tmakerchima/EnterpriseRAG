@@ -2,6 +2,7 @@ package com.tmakerchima.enterpriserag.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
@@ -30,6 +31,13 @@ class CorsConfigTest {
         CorsConfiguration cors = configuration("");
 
         assertNull(cors.checkOrigin("https://untrusted.example.com"));
+    }
+
+    @Test
+    void humanReviewPatchRequestsAreAllowed() {
+        CorsConfiguration cors = configuration("");
+
+        assertTrue(cors.getAllowedMethods().contains("PATCH"));
     }
 
     private CorsConfiguration configuration(String configuredOrigins) {

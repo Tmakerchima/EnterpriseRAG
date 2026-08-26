@@ -2,85 +2,57 @@
 import { computed, onMounted, ref } from 'vue'
 import { isEvaluationReport, type CaseSuccessRow, type EvaluationReport } from '../evaluation-report'
 
-const props = defineProps<{ locale: 'zh' | 'en' }>()
+const props = defineProps<{ locale: 'zh' | 'en'; apiBase: string }>()
 type CheckState = 'PASS' | 'FAIL' | 'PENDING' | 'INFO'
 interface BeginnerCheck { key: string; number: string; question: string; value: string; state: CheckState; answer: string; detail: string }
+interface ReviewItem {
+  reviewId: string; requestId: string; question: string; answer: string
+  sources: Array<Record<string, unknown>>; accessRole?: string; strategy?: string
+  status: 'PENDING' | 'REVIEWED'; verdict?: string; reviewerComment?: string
+  createdAt: string; reviewedAt?: string
+}
 
 const report = ref<EvaluationReport | null>(null)
 const loading = ref(false)
 const loadError = ref('')
 const source = ref<'published' | 'local'>('published')
 const fileInput = ref<HTMLInputElement | null>(null)
+const expandedCase = ref<string | null>(null)
+const reviewOpen = ref(false)
+const reviewLoading = ref(false)
+const reviewError = ref('')
+const reviewToken = ref('')
+const reviewStatus = ref<'PENDING' | 'REVIEWED' | ''>('PENDING')
+const reviewItems = ref<ReviewItem[]>([])
+const reviewComments = ref<Record<string, string>>({})
 
 const copy = computed(() => props.locale === 'zh' ? {
-  kicker: 'EVALUATION / 初学者模式', title: '这套 RAG 到底好不好？',
-  lede: '先看四个能直接回答的问题。专业指标和逐题明细仍然保留，但默认折叠。',
-  latest: '刷新报告', import: '导入报告', loading: '正在读取评测报告…',
-  empty: '还没有评测报告。请先运行 evaluation 中的 smoke 或 collect/score/report，再导入 summary.json。',
-  invalidFile: '这不是有效的 EnterpriseRAG summary.json。', loadFailed: '读取已发布评测报告失败。',
-  synthetic: '这是合成数据，只能证明评测程序能运行，不能代表真实业务效果。',
-  limitedScope: '本次只测了 {supported}/{questions} 道题；结论不能代表完整 500 题或你的真实企业数据。',
-  verdictTitle: '一句话结论', verdictPass: '达到当前报告设定的门槛', verdictFail: '暂时不建议上线', verdictPending: '现在还不能判断是否可上线',
-  verdictPassDetail: '已测的检索、安全和语义指标通过当前阈值；上线前仍要完成真实企业数据、身份系统和压力测试。',
-  verdictFailDetail: '至少一项关键指标未过线，请先处理下方标红的项目。',
-  verdictPendingDetail: '主要原因是语义裁判没有运行。系统找到证据，不等于最终回答一定正确。',
-  nextTitle: '下一步先做什么',
-  nextRetrieval: '先优化检索：正确证据进入前 5 条的比例还没达到 85%。',
-  nextJudge: '配置 LLM Judge 或人工抽检，确认回答是否忠于证据。',
-  nextSafety: '先修复权限泄漏；安全门禁失败时不能发布。',
-  nextReady: '换成真实企业问题与真实权限数据，做预发布压测和人工验收。',
-  qRetrieval: '能找到正确资料吗？', qAnswer: '回答真的可靠吗？', qSafety: '会不会看到无权查看的资料？', qSpeed: '用户要等多久？',
-  yes: '通过', no: '未通过', pending: '待确认', observed: '已测量',
-  retrievalAnswer: '每 100 个问题，约有 {rate} 个能在前 5 条里找到正确证据。',
-  retrievalDetail: '目标是至少 85%。这项叫 Recall@5；数值越高越好。',
-  answerMeasured: '语义裁判认为回答忠于证据的比例是 {rate}。',
-  answerPending: '语义裁判没有运行，所以只能确认“找到了证据”，不能确认回答意思一定正确。',
-  answerDetail: 'Token F1 只比较文字重合，不足以判断改写后的回答是否正确。',
-  safetyPass: '本次测试没有发现越权切片。', safetyFail: '发现了越权切片，这是必须阻断发布的问题。', safetyPending: '安全测试没有执行。',
-  safetyDetail: '管理员也只能访问自己的 tenant；安全项不能被其他平均分抵消。',
-  speedAnswer: '95% 的请求在 {seconds} 秒内完成。', speedPending: '性能数据没有执行。',
-  speedDetail: 'P95 比平均值更接近大多数用户遇到的较慢体验；正式上线应按自己的 SLO 设门槛。',
-  local: '本地导入', published: '仓库内报告', run: '运行 ID', dataset: '数据集', measuredAt: '测量时间', scope: '有效题数',
-  advanced: '查看专业指标（可选）', advancedHint: '这些指标给调优人员使用；初学者看上面的四个问题就够了。',
-  retrievalMetrics: '检索指标', answerMetrics: '回答指标', operations: '安全与性能', cases: '查看逐题结果',
-  caseId: '题目', result: '结果', reason: '原因', pass: '通过', fail: '失败', review: '待人工判断', noReason: '必要条件已通过', noCases: '报告没有逐题明细。',
-  notMeasured: '未测量', glossary: '小词典',
-  recall: 'Recall@5：正确证据有没有出现在前 5 条。', ndcg: 'nDCG@10：正确资料是否排得靠前。',
-  tokenF1: 'Token F1：回答和标准答案的文字重合度。', exact: 'Exact match：回答文字是否完全相同；生成式回答通常很低。',
+  kicker: 'EVALUATION / 可审计评测', title: '这套 RAG 到底好不好？', lede: '结论必须带分母、覆盖范围和逐题证据；没有执行的测试不会显示成通过。',
+  latest: '刷新报告', import: '导入报告', humanReview: '人工审核', closeReview: '关闭审核', loading: '正在读取评测报告…', empty: '还没有评测报告。请先运行 collect/score/report，再导入 summary.json。', invalidFile: '这不是有效的 EnterpriseRAG summary.json。', loadFailed: '读取已发布评测报告失败。',
+  synthetic: '这是合成数据，只能证明评测程序能运行，不能代表真实业务效果。', limitedScope: '完整题库 {questions} 道：完整覆盖 {supported} 道、部分覆盖 {partial} 道、不支持 {unsupported} 道。当前指标分母仅为 {supported}，不能代表全量。',
+  coverageTitle: '测试覆盖范围', coverageMeasured: '进入本次指标', coveragePartial: '部分覆盖', coverageMissing: '未覆盖', coverageRate: '全量题库覆盖率',
+  verdictTitle: '一句话结论', verdictPass: '达到当前报告设定的门槛', verdictFail: '暂时不建议上线', verdictPending: '证据不足，不能判断是否可上线', verdictPassDetail: '检索、安全和语义指标均完成且通过；仍需用真实业务数据持续复验。', verdictFailDetail: '至少一项已执行的关键指标未过线，请先处理下方标红项目。', verdictPendingDetail: '覆盖、安全负向用例或语义裁判尚未完整执行；缺失数据不能当作通过。',
+  nextTitle: '下一步先做什么', nextRetrieval: '优化检索，并用相同题集复测 Recall@5。', nextJudge: '启用 LLM-as-Judge，并用人工双标样本校准其一致性。', nextSafety: '补充并执行越权负向用例；安全门禁失败时不能发布。', nextCoverage: '先补齐语料来源，让 500 道题都能进入公平评测。', nextReady: '继续积累线上人工审核数据并做发布前压测。',
+  qRetrieval: '能找到正确资料吗？', qAnswer: '回答真的可靠吗？', qSafety: '会不会看到无权查看的资料？', qSpeed: '用户要等多久？', yes: '通过', no: '未通过', pending: '待确认', observed: '已测量',
+  retrievalAnswer: '{count} 道有效题中有 {hits} 道在前 5 条结果找到正确证据，即 {rate}；不是测试了 100 道。', retrievalDetail: '分母来自本次 fully_supported 题目；目标 Recall@5 ≥ 85%，95% 置信区间也应一起查看。',
+  answerMeasured: 'LLM-as-Judge 已评 {measured}/{total} 道，平均忠实度 {rate}；模型为 {model}。', answerPending: '本次 {total} 道中，LLM Judge 实际完成 {measured} 道；{pending} 道仍待语义审核，{failed} 道已因证据缺失失败。', answerDetail: '忠实度只判断回答是否依据给定证据，不等于覆盖完整或事实绝对正确；需用人工审核校准。',
+  safetyPass: '执行了 {cases} 道专门的越权/注入负向用例，发现 {leaks} 次泄漏。', safetyFail: '在 {cases} 道安全负向用例中发现 {leaks} 次泄漏，必须阻断发布。', safetyPending: '报告没有记录专门的越权负向用例，普通问答的“0 泄漏”不算安全测试。', safetyDetail: '必须构造用户无权访问但语义高度相关的文档，并断言它既不被检索也不被引用。',
+  speedAnswer: '共 {count} 次请求：P50 {p50}s · P95 {p95}s · P99 {p99}s。', speedPending: '性能数据没有执行。', speedDetail: '卡片主值是 P95（95% 请求不超过该耗时），不是平均响应时间。',
+  local: '本地导入', published: '仓库内报告', run: '运行 ID', dataset: '数据集', measuredAt: '测量时间', scope: '有效题数', advanced: '查看专业指标', advancedHint: '每项都显示样本数；安全与性能也显示实际测试数量。', retrievalMetrics: '检索指标', answerMetrics: '回答指标', operations: '安全与性能', cases: '查看逐题结果',
+  caseQuestion: '题目', result: '结果', reason: '原因', pass: '通过', fail: '失败', review: '待人工判断', noReason: '必要条件已通过', noCases: '报告没有逐题明细。', detailsUnavailable: '旧报告没有保存题目、回答或 source；重新运行 report 后会补齐。', systemAnswer: '系统回答', referenceAnswer: '参考答案', sourceEvidence: '结果中的 source 片段', noSource: '本题没有保存 source 片段。',
+  notMeasured: '未测量', glossary: '口径说明', recall: 'Recall@5：正确证据有没有出现在前 5 条。', ndcg: 'nDCG@10：正确资料是否排得靠前。', tokenF1: 'Token F1：只比较字面重合，不能证明语义正确。', exact: 'Exact match：回答文字是否完全相同。',
+  reviewTitle: '线上问答人工审核', reviewIntro: '用户点击“Needs review”后，问题、回答和引用片段进入这里；审核结论可沉淀为后续评测数据。', adminToken: '管理员令牌（仅本次页面会话）', loadQueue: '读取审核队列', pendingOnly: '待审核', reviewedOnly: '已审核', allReviews: '全部', noReviews: '当前没有记录。', reliable: '回答可靠', unreliable: '回答不可靠', insufficient: '证据不足', reviewComment: '审核依据（可选）', unauthorized: '无法读取审核队列，请检查管理员令牌和后端迁移。', apiMissing: '未配置后端 API。',
 } : {
-  kicker: 'EVALUATION / BEGINNER MODE', title: 'Is this RAG system actually good?',
-  lede: 'Start with four plain questions. Professional metrics and case details remain available but collapsed by default.',
-  latest: 'Refresh report', import: 'Import report', loading: 'Loading the evaluation report…',
-  empty: 'No evaluation report is available. Run smoke or collect/score/report in evaluation, then import summary.json.',
-  invalidFile: 'This is not a valid EnterpriseRAG summary.json.', loadFailed: 'Unable to read the published evaluation report.',
-  synthetic: 'This is synthetic data. It proves the evaluator runs, not that the product performs well on real work.',
-  limitedScope: 'Only {supported}/{questions} questions were measured. This does not represent the full benchmark or your enterprise data.',
-  verdictTitle: 'Bottom line', verdictPass: 'Meets the thresholds in this report', verdictFail: 'Not ready to release', verdictPending: 'Release readiness is still unknown',
-  verdictPassDetail: 'Measured retrieval, safety, and semantic checks meet current thresholds. Real data, identity integration, and load tests are still required.',
-  verdictFailDetail: 'At least one critical metric missed its threshold. Fix the red item below first.',
-  verdictPendingDetail: 'The semantic judge did not run. Finding evidence does not prove the final answer is correct.',
-  nextTitle: 'What to do next', nextRetrieval: 'Improve retrieval first: correct evidence appears in the top 5 less than 85% of the time.',
-  nextJudge: 'Run an LLM judge or human review to confirm answers stay faithful to evidence.',
-  nextSafety: 'Fix the permission leak first. A failed security gate blocks release.',
-  nextReady: 'Evaluate real enterprise questions and permissions, then run pre-release load and human acceptance tests.',
-  qRetrieval: 'Can it find the right material?', qAnswer: 'Are the answers actually reliable?', qSafety: 'Can users see forbidden material?', qSpeed: 'How long do users wait?',
-  yes: 'Pass', no: 'Fail', pending: 'Pending', observed: 'Measured',
-  retrievalAnswer: 'For every 100 questions, about {rate} find correct evidence in the first 5 results.',
-  retrievalDetail: 'The target is at least 85%. This metric is Recall@5; higher is better.',
-  answerMeasured: 'The semantic judge rated {rate} of answers faithful to their evidence.',
-  answerPending: 'The semantic judge did not run. Evidence was found, but answer meaning has not been verified.',
-  answerDetail: 'Token F1 only measures word overlap and cannot validate a correctly paraphrased answer.',
-  safetyPass: 'No forbidden chunks were found in this test.', safetyFail: 'Forbidden chunks were found. This must block release.', safetyPending: 'Security evaluation did not run.',
-  safetyDetail: 'An admin is still tenant-scoped. Security cannot be averaged away by other scores.',
-  speedAnswer: '95% of requests finished within {seconds} seconds.', speedPending: 'Performance evaluation did not run.',
-  speedDetail: 'P95 reflects the slower experience most users may encounter. Production needs a threshold based on your own SLO.',
-  local: 'Local import', published: 'Published report', run: 'Run ID', dataset: 'Dataset', measuredAt: 'Measured at', scope: 'Eligible cases',
-  advanced: 'Show professional metrics (optional)', advancedHint: 'These help tuning work. Beginners can use the four questions above.',
-  retrievalMetrics: 'Retrieval metrics', answerMetrics: 'Answer metrics', operations: 'Safety and performance', cases: 'Show case results',
-  caseId: 'Case', result: 'Result', reason: 'Reason', pass: 'Pass', fail: 'Fail', review: 'Needs human review', noReason: 'Required checks passed', noCases: 'The report has no case details.',
-  notMeasured: 'Not measured', glossary: 'Glossary', recall: 'Recall@5: whether correct evidence appears in the first 5 results.',
-  ndcg: 'nDCG@10: whether relevant material ranks near the top.', tokenF1: 'Token F1: word overlap between the answer and a reference answer.',
-  exact: 'Exact match: identical normalized text; usually low for generated prose.',
+  kicker: 'EVALUATION / AUDITABLE', title: 'Is this RAG system actually good?', lede: 'Every conclusion needs a denominator, coverage scope, and case evidence. An unexecuted test is never shown as a pass.',
+  latest: 'Refresh report', import: 'Import report', humanReview: 'Human review', closeReview: 'Close review', loading: 'Loading the evaluation report…', empty: 'No evaluation report is available. Run collect/score/report, then import summary.json.', invalidFile: 'This is not a valid EnterpriseRAG summary.json.', loadFailed: 'Unable to read the published evaluation report.', synthetic: 'Synthetic data only proves the evaluator runs; it is not a business benchmark.', limitedScope: 'Full set {questions}: {supported} fully supported, {partial} partially supported, {unsupported} unsupported. Current metric denominator is only {supported}.',
+  coverageTitle: 'Test coverage', coverageMeasured: 'Included in metrics', coveragePartial: 'Partial', coverageMissing: 'Not covered', coverageRate: 'Full-set coverage',
+  verdictTitle: 'Bottom line', verdictPass: 'Meets the report thresholds', verdictFail: 'Not ready to release', verdictPending: 'Insufficient evidence for release', verdictPassDetail: 'Retrieval, security, and semantic checks completed and passed; continue validating with real work.', verdictFailDetail: 'At least one executed critical check failed.', verdictPendingDetail: 'Coverage, negative security cases, or semantic judging is incomplete. Missing data is not a pass.',
+  nextTitle: 'Do this next', nextRetrieval: 'Improve retrieval and rerun the same Recall@5 set.', nextJudge: 'Enable LLM-as-Judge and calibrate it against double-labeled human reviews.', nextSafety: 'Add and run negative ACL cases; security failures block release.', nextCoverage: 'Ingest all source types so all 500 questions can be evaluated fairly.', nextReady: 'Keep collecting human reviews and run pre-release load tests.',
+  qRetrieval: 'Can it find the right material?', qAnswer: 'Are the answers actually reliable?', qSafety: 'Can users see forbidden material?', qSpeed: 'How long do users wait?', yes: 'Pass', no: 'Fail', pending: 'Pending', observed: 'Measured',
+  retrievalAnswer: '{hits} of {count} eligible questions found correct evidence in the top 5 ({rate}); this was not a 100-question test.', retrievalDetail: 'The denominator is fully_supported cases; target Recall@5 ≥ 85%. Inspect the 95% confidence interval too.', answerMeasured: 'LLM-as-Judge completed {measured}/{total}; mean faithfulness is {rate}, using {model}.', answerPending: 'Of {total} cases, the LLM Judge completed {measured}; {pending} still need semantic review and {failed} already failed for missing evidence.', answerDetail: 'Faithfulness checks grounding in supplied evidence; it does not prove complete coverage or absolute correctness. Calibrate it with people.',
+  safetyPass: '{cases} dedicated ACL/injection negative cases ran with {leaks} leaks.', safetyFail: '{leaks} leaks occurred in {cases} negative security cases. Release must be blocked.', safetyPending: 'The report does not record dedicated negative ACL cases. “0 leaks” across ordinary questions is not a security test.', safetyDetail: 'Use inaccessible but highly relevant documents and assert they are neither retrieved nor cited.', speedAnswer: '{count} requests: P50 {p50}s · P95 {p95}s · P99 {p99}s.', speedPending: 'Performance evaluation did not run.', speedDetail: 'The headline is P95 (95% of requests finish within it), not the average.',
+  local: 'Local import', published: 'Published report', run: 'Run ID', dataset: 'Dataset', measuredAt: 'Measured at', scope: 'Eligible cases', advanced: 'Show professional metrics', advancedHint: 'Every metric shows its sample size; security and performance show actual test counts.', retrievalMetrics: 'Retrieval metrics', answerMetrics: 'Answer metrics', operations: 'Security and performance', cases: 'Show case results', caseQuestion: 'Question', result: 'Result', reason: 'Reason', pass: 'Pass', fail: 'Fail', review: 'Needs review', noReason: 'Required checks passed', noCases: 'No case details are present.', detailsUnavailable: 'This old report did not retain the question, answer, or sources. Rerun report to include them.', systemAnswer: 'System answer', referenceAnswer: 'Reference answer', sourceEvidence: 'Source excerpts returned in results', noSource: 'No source excerpt was retained.',
+  notMeasured: 'Not measured', glossary: 'Definitions', recall: 'Recall@5: whether correct evidence appears in the first five results.', ndcg: 'nDCG@10: whether relevant material ranks near the top.', tokenF1: 'Token F1 only measures lexical overlap.', exact: 'Exact match requires identical normalized text.', reviewTitle: 'Human review of live Q&A', reviewIntro: 'When a user selects “Needs review,” the question, answer, and cited excerpts enter this queue and can become future evaluation data.', adminToken: 'Admin token (this page session only)', loadQueue: 'Load review queue', pendingOnly: 'Pending', reviewedOnly: 'Reviewed', allReviews: 'All', noReviews: 'No records.', reliable: 'Reliable', unreliable: 'Unreliable', insufficient: 'Insufficient evidence', reviewComment: 'Review rationale (optional)', unauthorized: 'Unable to read the queue. Check the admin token and backend migration.', apiMissing: 'Backend API is not configured.',
 })
 
 const reportUrl = (import.meta.env.VITE_EVALUATION_REPORT_URL || '/evaluation/latest.json').trim()
@@ -89,94 +61,71 @@ const generation = computed(() => report.value?.layers?.generation)
 const security = computed(() => report.value?.layers?.security)
 const performance = computed(() => report.value?.layers?.performance)
 const scope = computed(() => report.value?.manifest?.scope)
-const recall5 = computed(() => retrieval.value?.ks?.['5']?.recall?.value ?? null)
+const recallMetric = computed(() => retrieval.value?.ks?.['5']?.recall)
+const recall5 = computed(() => recallMetric.value?.value ?? null)
+const hitRate5 = computed(() => retrieval.value?.ks?.['5']?.hit_rate?.value ?? recall5.value)
 const ndcg10 = computed(() => retrieval.value?.ks?.['10']?.ndcg?.value ?? null)
-const judgeResult = computed(() => generation.value?.judge?.results?.find(item => item.metric === 'faithfulness' && item.status === 'MEASURED' && item.score != null))
-const judgeScore = computed(() => judgeResult.value?.score ?? null)
+const retrievalCount = computed(() => recallMetric.value?.count ?? retrieval.value?.eligible_cases ?? 0)
+const retrievalHits = computed(() => hitRate5.value == null ? 0 : Math.round(hitRate5.value * retrievalCount.value))
+const judge = computed(() => generation.value?.judge)
+const measuredJudgeRows = computed(() => judge.value?.results?.filter(item => item.status === 'MEASURED' && item.score != null) ?? [])
+const judgeScore = computed(() => judge.value?.mean_score ?? (measuredJudgeRows.value.length ? measuredJudgeRows.value.reduce((sum, item) => sum + Number(item.score), 0) / measuredJudgeRows.value.length : null))
+const judgeMeasured = computed(() => judge.value?.measured_cases ?? measuredJudgeRows.value.length)
+const judgeTotal = computed(() => judge.value?.total_cases ?? judge.value?.results?.length ?? generation.value?.eligible_cases ?? 0)
+const securityCases = computed(() => (security.value?.acl_negative_cases ?? 0) + (security.value?.prompt_injection_cases ?? 0))
+const securityCoverageKnown = computed(() => security.value?.acl_negative_cases != null || security.value?.prompt_injection_cases != null)
+const coverageComplete = computed(() => !!scope.value?.question_count && (scope.value.fully_supported ?? 0) >= scope.value.question_count)
+const coverageRate = computed(() => scope.value?.question_count ? (scope.value.fully_supported ?? 0) / scope.value.question_count : null)
 
 const releaseState = computed<'PASS' | 'FAIL' | 'PENDING'>(() => {
-  if (security.value?.hard_gate === 'FAIL') return 'FAIL'
+  if (securityCoverageKnown.value && security.value?.hard_gate === 'FAIL') return 'FAIL'
   if (recall5.value != null && recall5.value < 0.85) return 'FAIL'
   if (ndcg10.value != null && ndcg10.value < 0.80) return 'FAIL'
-  if (judgeScore.value == null || security.value?.status !== 'MEASURED' || recall5.value == null) return 'PENDING'
-  return judgeScore.value >= (judgeResult.value?.threshold ?? 0.90) ? 'PASS' : 'FAIL'
+  if (!coverageComplete.value || !securityCoverageKnown.value || securityCases.value === 0) return 'PENDING'
+  if (judgeScore.value == null || judgeMeasured.value < judgeTotal.value || recall5.value == null) return 'PENDING'
+  return judgeScore.value >= (judge.value?.threshold ?? 0.90) ? 'PASS' : 'FAIL'
 })
-const verdict = computed(() => releaseState.value === 'PASS'
-  ? { title: copy.value.verdictPass, detail: copy.value.verdictPassDetail }
-  : releaseState.value === 'FAIL'
-    ? { title: copy.value.verdictFail, detail: copy.value.verdictFailDetail }
-    : { title: copy.value.verdictPending, detail: copy.value.verdictPendingDetail })
-const nextAction = computed(() => security.value?.hard_gate === 'FAIL' ? copy.value.nextSafety
-  : recall5.value != null && recall5.value < 0.85 ? copy.value.nextRetrieval
-    : judgeScore.value == null ? copy.value.nextJudge : copy.value.nextReady)
+const verdict = computed(() => releaseState.value === 'PASS' ? { title: copy.value.verdictPass, detail: copy.value.verdictPassDetail } : releaseState.value === 'FAIL' ? { title: copy.value.verdictFail, detail: copy.value.verdictFailDetail } : { title: copy.value.verdictPending, detail: copy.value.verdictPendingDetail })
+const nextAction = computed(() => securityCoverageKnown.value && security.value?.hard_gate === 'FAIL' ? copy.value.nextSafety : recall5.value != null && recall5.value < 0.85 ? copy.value.nextRetrieval : !coverageComplete.value ? copy.value.nextCoverage : !securityCoverageKnown.value || securityCases.value === 0 ? copy.value.nextSafety : judgeScore.value == null ? copy.value.nextJudge : copy.value.nextReady)
 
 const checks = computed<BeginnerCheck[]>(() => {
   const retrievalState: CheckState = recall5.value == null ? 'PENDING' : recall5.value >= 0.85 ? 'PASS' : 'FAIL'
-  const answerState: CheckState = judgeScore.value == null ? 'PENDING' : judgeScore.value >= (judgeResult.value?.threshold ?? 0.90) ? 'PASS' : 'FAIL'
-  const safetyState: CheckState = security.value?.status !== 'MEASURED' ? 'PENDING' : security.value?.hard_gate === 'PASS' ? 'PASS' : 'FAIL'
+  const answerState: CheckState = judgeScore.value == null || judgeMeasured.value < judgeTotal.value ? 'PENDING' : judgeScore.value >= (judge.value?.threshold ?? 0.90) ? 'PASS' : 'FAIL'
+  const safetyState: CheckState = !securityCoverageKnown.value || securityCases.value === 0 || security.value?.status !== 'MEASURED' ? 'PENDING' : security.value?.hard_gate === 'PASS' ? 'PASS' : 'FAIL'
   const p95 = performance.value?.p95_ms
+  const pendingCases = generation.value?.case_success?.pending_review_cases ?? 0
+  const failedCases = generation.value?.case_success?.failed_cases ?? 0
+  const model = judge.value?.judge_models?.join(', ') || measuredJudgeRows.value.find(item => item.judge_model)?.judge_model || '—'
   return [
-    { key: 'retrieval', number: '01', question: copy.value.qRetrieval, value: formatPercent(recall5.value), state: retrievalState,
-      answer: recall5.value == null ? copy.value.notMeasured : interpolate(copy.value.retrievalAnswer, { rate: Math.round(recall5.value * 100) }), detail: copy.value.retrievalDetail },
-    { key: 'answer', number: '02', question: copy.value.qAnswer, value: formatPercent(judgeScore.value), state: answerState,
-      answer: judgeScore.value == null ? copy.value.answerPending : interpolate(copy.value.answerMeasured, { rate: formatPercent(judgeScore.value) }), detail: copy.value.answerDetail },
-    { key: 'safety', number: '03', question: copy.value.qSafety,
-      value: safetyState === 'PASS' ? '0 leak' : safetyState === 'FAIL' ? String(security.value?.forbidden_retrieval_count ?? 1) : '—', state: safetyState,
-      answer: safetyState === 'PASS' ? copy.value.safetyPass : safetyState === 'FAIL' ? copy.value.safetyFail : copy.value.safetyPending, detail: copy.value.safetyDetail },
-    { key: 'speed', number: '04', question: copy.value.qSpeed, value: p95 == null ? '—' : `${(p95 / 1000).toFixed(1)}s`, state: p95 == null ? 'PENDING' : 'INFO',
-      answer: p95 == null ? copy.value.speedPending : interpolate(copy.value.speedAnswer, { seconds: (p95 / 1000).toFixed(1) }), detail: copy.value.speedDetail },
+    { key: 'retrieval', number: '01', question: copy.value.qRetrieval, value: retrievalCount.value ? `${retrievalHits.value} / ${retrievalCount.value}` : '—', state: retrievalState, answer: recall5.value == null ? copy.value.notMeasured : interpolate(copy.value.retrievalAnswer, { hits: retrievalHits.value, count: retrievalCount.value, rate: formatPercent(recall5.value) }), detail: copy.value.retrievalDetail },
+    { key: 'answer', number: '02', question: copy.value.qAnswer, value: judgeScore.value == null ? `${judgeMeasured.value} / ${judgeTotal.value || retrievalCount.value}` : formatPercent(judgeScore.value), state: answerState, answer: judgeScore.value == null ? interpolate(copy.value.answerPending, { total: judgeTotal.value || retrievalCount.value, measured: judgeMeasured.value, pending: pendingCases, failed: failedCases }) : interpolate(copy.value.answerMeasured, { measured: judgeMeasured.value, total: judgeTotal.value, rate: formatPercent(judgeScore.value), model }), detail: copy.value.answerDetail },
+    { key: 'safety', number: '03', question: copy.value.qSafety, value: safetyState === 'PENDING' ? copy.value.notMeasured : `${security.value?.forbidden_retrieval_count ?? 0} / ${securityCases.value}`, state: safetyState, answer: safetyState === 'PENDING' ? copy.value.safetyPending : interpolate(safetyState === 'PASS' ? copy.value.safetyPass : copy.value.safetyFail, { cases: securityCases.value, leaks: security.value?.forbidden_retrieval_count ?? 0 }), detail: copy.value.safetyDetail },
+    { key: 'speed', number: '04', question: copy.value.qSpeed, value: p95 == null ? '—' : `P95 ${seconds(p95)}s`, state: p95 == null ? 'PENDING' : 'INFO', answer: p95 == null ? copy.value.speedPending : interpolate(copy.value.speedAnswer, { count: performance.value?.request_count ?? 0, p50: seconds(performance.value?.p50_ms), p95: seconds(p95), p99: seconds(performance.value?.p99_ms) }), detail: copy.value.speedDetail },
   ]
 })
 
 const professionalMetrics = computed(() => [
-  { group: copy.value.retrievalMetrics, rows: [
-    { name: 'Recall@5', metric: retrieval.value?.ks?.['5']?.recall }, { name: 'nDCG@10', metric: retrieval.value?.ks?.['10']?.ndcg },
-    { name: 'MRR@10', metric: retrieval.value?.ks?.['10']?.mrr }, { name: 'HitRate@5', metric: retrieval.value?.ks?.['5']?.hit_rate },
-  ] },
-  { group: copy.value.answerMetrics, rows: [
-    { name: 'Faithfulness', metric: judgeScore.value == null ? undefined : { value: judgeScore.value, count: 1 } },
-    { name: 'Fact coverage', metric: generation.value?.fact_coverage }, { name: 'Token F1', metric: generation.value?.token_f1 },
-    { name: 'Exact match', metric: generation.value?.exact_match },
-  ] },
+  { group: copy.value.retrievalMetrics, rows: [{ name: 'Recall@5', metric: retrieval.value?.ks?.['5']?.recall }, { name: 'nDCG@10', metric: retrieval.value?.ks?.['10']?.ndcg }, { name: 'MRR@10', metric: retrieval.value?.ks?.['10']?.mrr }, { name: 'HitRate@5', metric: retrieval.value?.ks?.['5']?.hit_rate }] },
+  { group: copy.value.answerMetrics, rows: [{ name: 'Judge faithfulness', metric: judgeScore.value == null ? undefined : { value: judgeScore.value, count: judgeMeasured.value } }, { name: 'Fact coverage', metric: generation.value?.fact_coverage }, { name: 'Token F1', metric: generation.value?.token_f1 }, { name: 'Exact match', metric: generation.value?.exact_match }] },
 ])
 
-function interpolate(template: string, values: Record<string, string | number>) { return Object.entries(values).reduce((text, [key, value]) => text.replace(`{${key}}`, String(value)), template) }
+function interpolate(template: string, values: Record<string, string | number>) { return Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template) }
 function formatPercent(value: number | null | undefined, digits = 1) { return value == null ? '—' : `${(value * 100).toFixed(digits)}%` }
-function formatDate(value: string | undefined) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(props.locale === 'zh' ? 'zh-CN' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
-}
+function seconds(value: number | null | undefined) { return value == null ? '—' : (value / 1000).toFixed(1) }
+function formatDate(value: string | undefined) { if (!value) return '—'; const date = new Date(value); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(props.locale === 'zh' ? 'zh-CN' : 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(date) }
 function checkLabel(state: CheckState) { return state === 'PASS' ? copy.value.yes : state === 'FAIL' ? copy.value.no : state === 'INFO' ? copy.value.observed : copy.value.pending }
 function caseOutcome(item: CaseSuccessRow): 'pass' | 'fail' | 'review' { return item.outcome === 'NEEDS_REVIEW' || item.success == null ? 'review' : item.success ? 'pass' : 'fail' }
 function caseLabel(item: CaseSuccessRow) { const outcome = caseOutcome(item); return outcome === 'pass' ? copy.value.pass : outcome === 'fail' ? copy.value.fail : copy.value.review }
 function reasonLabel(reason: string) {
-  const labels = props.locale === 'zh' ? {
-    REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: '正确证据没有进入最终上下文', SEMANTIC_FACT_REVIEW_REQUIRED: '已经找到证据，回答意思待人工确认',
-    PRODUCT_ERROR: '产品请求出错', SECURITY_VIOLATION: '权限策略违规', ABSTENTION_FAILURE: '应该拒答但没有拒答',
-  } : {
-    REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: 'Correct evidence did not enter final context', SEMANTIC_FACT_REVIEW_REQUIRED: 'Evidence found; answer meaning needs review',
-    PRODUCT_ERROR: 'Product request failed', SECURITY_VIOLATION: 'Permission policy violation', ABSTENTION_FAILURE: 'The system should have abstained',
-  }
+  const labels = props.locale === 'zh' ? { REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: '正确证据没有进入最终上下文：系统回答缺少必要依据', SEMANTIC_FACT_REVIEW_REQUIRED: '证据已进入上下文，但改写后的事实含义尚未被裁判或人工确认', PRODUCT_ERROR: '产品请求执行出错，无法形成有效答案', SECURITY_VIOLATION: '检索或引用触发权限策略违规', ABSTENTION_FAILURE: '证据不足时系统仍然作答', LLM_JUDGE_CONFIRMED: 'LLM Judge 判断回答忠于检索证据', LLM_JUDGE_REJECTED: 'LLM Judge 判断回答与检索证据不一致' } : { REQUIRED_EVIDENCE_NOT_IN_FINAL_CONTEXT: 'Required evidence did not enter final context, so the answer lacked its necessary basis', SEMANTIC_FACT_REVIEW_REQUIRED: 'Evidence is present, but the paraphrased fact still needs semantic review', PRODUCT_ERROR: 'The product request failed', SECURITY_VIOLATION: 'Retrieval or citation violated authorization policy', ABSTENTION_FAILURE: 'The system answered despite insufficient evidence', LLM_JUDGE_CONFIRMED: 'LLM Judge found the answer faithful to evidence', LLM_JUDGE_REJECTED: 'LLM Judge found the answer inconsistent with evidence' }
   return labels[reason as keyof typeof labels] || reason
 }
-async function loadLatest() {
-  loading.value = true; loadError.value = ''
-  try {
-    const response = await fetch(reportUrl, { cache: 'no-store', headers: { Accept: 'application/json' } })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const payload: unknown = await response.json()
-    if (!isEvaluationReport(payload)) throw new Error('invalid report')
-    report.value = payload; source.value = 'published'
-  } catch { if (!report.value) loadError.value = copy.value.loadFailed } finally { loading.value = false }
-}
+async function loadLatest() { loading.value = true; loadError.value = ''; try { const response = await fetch(reportUrl, { cache: 'no-store', headers: { Accept: 'application/json' } }); if (!response.ok) throw new Error(`HTTP ${response.status}`); const payload: unknown = await response.json(); if (!isEvaluationReport(payload)) throw new Error('invalid report'); report.value = payload; source.value = 'published' } catch { if (!report.value) loadError.value = copy.value.loadFailed } finally { loading.value = false } }
 function openFilePicker() { fileInput.value?.click() }
-async function importReport(event: Event) {
-  const input = event.target as HTMLInputElement; const file = input.files?.[0]; if (!file) return
-  loadError.value = ''
-  try { const payload: unknown = JSON.parse(await file.text()); if (!isEvaluationReport(payload)) throw new Error('invalid report'); report.value = payload; source.value = 'local' }
-  catch { loadError.value = copy.value.invalidFile } finally { input.value = '' }
-}
+async function importReport(event: Event) { const input = event.target as HTMLInputElement; const file = input.files?.[0]; if (!file) return; loadError.value = ''; try { const payload: unknown = JSON.parse(await file.text()); if (!isEvaluationReport(payload)) throw new Error('invalid report'); report.value = payload; source.value = 'local' } catch { loadError.value = copy.value.invalidFile } finally { input.value = '' } }
+async function toggleReviews() { reviewOpen.value = !reviewOpen.value; reviewError.value = ''; if (reviewOpen.value && reviewToken.value) await loadReviews() }
+async function loadReviews() { if (!props.apiBase) { reviewError.value = copy.value.apiMissing; return } if (!reviewToken.value) { reviewError.value = copy.value.unauthorized; return } reviewLoading.value = true; reviewError.value = ''; try { const query = reviewStatus.value ? `?status=${reviewStatus.value}` : ''; const response = await fetch(`${props.apiBase}/api/enterprise/reviews${query}`, { headers: { Accept: 'application/json', 'X-Enterprise-Admin-Token': reviewToken.value } }); if (!response.ok) throw new Error(`HTTP ${response.status}`); const payload = await response.json() as { items?: ReviewItem[] }; reviewItems.value = payload.items ?? [] } catch { reviewError.value = copy.value.unauthorized } finally { reviewLoading.value = false } }
+async function completeReview(item: ReviewItem, verdict: string) { if (!props.apiBase || !reviewToken.value) return; reviewError.value = ''; try { const response = await fetch(`${props.apiBase}/api/enterprise/reviews/${item.reviewId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Enterprise-Admin-Token': reviewToken.value }, body: JSON.stringify({ verdict, comment: reviewComments.value[item.reviewId] || null }) }); if (!response.ok) throw new Error(`HTTP ${response.status}`); await loadReviews() } catch { reviewError.value = copy.value.unauthorized } }
 onMounted(loadLatest)
 </script>
 
@@ -184,78 +133,47 @@ onMounted(loadLatest)
   <section id="evaluation" class="evaluation-dashboard">
     <header class="evaluation-heading">
       <div><p class="eyebrow">{{ copy.kicker }}</p><h2>{{ copy.title }}</h2><p>{{ copy.lede }}</p></div>
-      <div class="evaluation-actions">
-        <button type="button" class="secondary-action" :disabled="loading" @click="loadLatest">{{ copy.latest }}</button>
-        <button type="button" class="primary-action" @click="openFilePicker">{{ copy.import }}</button>
-        <input ref="fileInput" class="visually-hidden" type="file" accept="application/json,.json" @change="importReport">
-      </div>
+      <div class="evaluation-actions"><button type="button" class="secondary-action" :disabled="loading" @click="loadLatest">{{ copy.latest }}</button><button type="button" class="secondary-action" @click="toggleReviews">{{ reviewOpen ? copy.closeReview : copy.humanReview }}</button><button type="button" class="primary-action" @click="openFilePicker">{{ copy.import }}</button><input ref="fileInput" class="visually-hidden" type="file" accept="application/json,.json" @change="importReport"></div>
     </header>
-    <div v-if="loading && !report" class="empty card">{{ copy.loading }}</div>
-    <div v-else-if="!report" class="empty card"><strong>NOT MEASURED</strong><p>{{ loadError || copy.empty }}</p></div>
+
+    <section v-if="reviewOpen" class="review-workbench card">
+      <header><p class="eyebrow">HUMAN REVIEW</p><h3>{{ copy.reviewTitle }}</h3><p>{{ copy.reviewIntro }}</p></header>
+      <div class="review-controls"><label><span>{{ copy.adminToken }}</span><input v-model="reviewToken" type="password" autocomplete="off"></label><label><span>Status</span><select v-model="reviewStatus"><option value="PENDING">{{ copy.pendingOnly }}</option><option value="REVIEWED">{{ copy.reviewedOnly }}</option><option value="">{{ copy.allReviews }}</option></select></label><button type="button" class="primary-action" :disabled="reviewLoading" @click="loadReviews">{{ reviewLoading ? '…' : copy.loadQueue }}</button></div>
+      <p v-if="reviewError" class="review-error">{{ reviewError }}</p>
+      <div v-if="reviewItems.length" class="review-list"><article v-for="item in reviewItems" :key="item.reviewId" class="review-item">
+        <div class="review-meta"><code>{{ item.requestId }}</code><span>{{ item.accessRole || '—' }} · {{ item.strategy || '—' }}</span><time>{{ formatDate(item.createdAt) }}</time></div><h4>{{ item.question }}</h4><p class="review-answer">{{ item.answer }}</p>
+        <details v-if="item.sources?.length"><summary>{{ copy.sourceEvidence }} · {{ item.sources.length }}</summary><blockquote v-for="(reviewSource, index) in item.sources" :key="index"><strong>{{ reviewSource.title || reviewSource.document_id || `#${index + 1}` }}</strong><p>{{ reviewSource.chunk }}</p></blockquote></details>
+        <template v-if="item.status === 'PENDING'"><textarea v-model="reviewComments[item.reviewId]" rows="2" :placeholder="copy.reviewComment" /><div class="review-buttons"><button type="button" @click="completeReview(item, 'RELIABLE')">{{ copy.reliable }}</button><button type="button" @click="completeReview(item, 'UNRELIABLE')">{{ copy.unreliable }}</button><button type="button" @click="completeReview(item, 'INSUFFICIENT_EVIDENCE')">{{ copy.insufficient }}</button></div></template><p v-else class="review-verdict"><strong>{{ item.verdict }}</strong> · {{ item.reviewerComment || '—' }}</p>
+      </article></div><p v-else-if="!reviewLoading">{{ copy.noReviews }}</p>
+    </section>
+
+    <div v-if="loading && !report" class="empty card">{{ copy.loading }}</div><div v-else-if="!report" class="empty card"><strong>NOT MEASURED</strong><p>{{ loadError || copy.empty }}</p></div>
     <template v-else>
-      <div v-if="report.synthetic_fixture" class="notice warning"><strong>SYNTHETIC FIXTURE</strong><span>{{ copy.synthetic }}</span></div>
-      <div v-else-if="scope" class="notice scope"><strong>LIMITED SCOPE</strong><span>{{ interpolate(copy.limitedScope, { supported: scope.fully_supported ?? 0, questions: scope.question_count ?? 0 }) }}</span></div>
-      <div v-if="loadError" class="notice danger">{{ loadError }}</div>
+      <div v-if="report.synthetic_fixture" class="notice warning"><strong>SYNTHETIC FIXTURE</strong><span>{{ copy.synthetic }}</span></div><div v-else-if="scope" class="notice scope"><strong>LIMITED SCOPE</strong><span>{{ interpolate(copy.limitedScope, { supported: scope.fully_supported ?? 0, partial: scope.partially_supported ?? 0, unsupported: scope.unsupported ?? 0, questions: scope.question_count ?? 0 }) }}</span></div><div v-if="loadError" class="notice danger">{{ loadError }}</div>
 
-      <section class="verdict card" :class="releaseState.toLowerCase()">
-        <div class="verdict-mark">{{ releaseState === 'PASS' ? '✓' : releaseState === 'FAIL' ? '!' : '?' }}</div>
-        <div><span>{{ copy.verdictTitle }} · {{ source === 'local' ? copy.local : copy.published }}</span><h3>{{ verdict.title }}</h3><p>{{ verdict.detail }}</p></div>
-        <aside><strong>{{ copy.nextTitle }}</strong><p>{{ nextAction }}</p></aside>
-      </section>
+      <section class="coverage-card card"><header><div><span>00</span><h3>{{ copy.coverageTitle }}</h3></div><strong>{{ formatPercent(coverageRate) }}</strong></header><div class="coverage-bar"><i :style="{ width: `${(coverageRate ?? 0) * 100}%` }" /></div><div class="coverage-counts"><p><span>{{ copy.coverageMeasured }}</span><strong>{{ scope?.fully_supported ?? retrieval?.eligible_cases ?? 0 }}</strong></p><p><span>{{ copy.coveragePartial }}</span><strong>{{ scope?.partially_supported ?? 0 }}</strong></p><p><span>{{ copy.coverageMissing }}</span><strong>{{ scope?.unsupported ?? 0 }}</strong></p><p><span>{{ copy.coverageRate }}</span><strong>{{ formatPercent(coverageRate) }}</strong></p></div></section>
 
-      <div class="beginner-checks">
-        <article v-for="check in checks" :key="check.key" class="check-card card" :class="check.state.toLowerCase()">
-          <div class="check-topline"><span>{{ check.number }}</span><em>{{ checkLabel(check.state) }}</em></div>
-          <h3>{{ check.question }}</h3><strong class="check-value">{{ check.value }}</strong><p>{{ check.answer }}</p><small>{{ check.detail }}</small>
-        </article>
-      </div>
+      <section class="verdict card" :class="releaseState.toLowerCase()"><div class="verdict-mark">{{ releaseState === 'PASS' ? '✓' : releaseState === 'FAIL' ? '!' : '?' }}</div><div><span>{{ copy.verdictTitle }} · {{ source === 'local' ? copy.local : copy.published }}</span><h3>{{ verdict.title }}</h3><p>{{ verdict.detail }}</p></div><aside><strong>{{ copy.nextTitle }}</strong><p>{{ nextAction }}</p></aside></section>
 
-      <section class="run-facts card">
-        <div><span>{{ copy.run }}</span><strong>{{ report.manifest?.run_id || '—' }}</strong></div>
-        <div><span>{{ copy.dataset }}</span><strong>{{ Array.isArray(report.manifest?.dataset_version) ? report.manifest.dataset_version.join(', ') : report.manifest?.dataset_version || '—' }}</strong></div>
-        <div><span>{{ copy.scope }}</span><strong>{{ retrieval?.eligible_cases ?? 0 }}</strong></div>
-        <div><span>{{ copy.measuredAt }}</span><strong>{{ formatDate(report.manifest?.created_at) }}</strong></div>
-      </section>
+      <div class="beginner-checks"><article v-for="check in checks" :key="check.key" class="check-card card" :class="check.state.toLowerCase()"><div class="check-topline"><span>{{ check.number }}</span><em>{{ checkLabel(check.state) }}</em></div><h3>{{ check.question }}</h3><strong class="check-value">{{ check.value }}</strong><p>{{ check.answer }}</p><small>{{ check.detail }}</small></article></div>
 
-      <details class="advanced card">
-        <summary><span>{{ copy.advanced }}</span><small>{{ copy.advancedHint }}</small></summary>
-        <div class="metric-groups">
-          <section v-for="group in professionalMetrics" :key="group.group">
-            <h3>{{ group.group }}</h3>
-            <div v-for="row in group.rows" :key="row.name" class="metric-row">
-              <span>{{ row.name }}</span><div><i :style="{ width: `${Math.max(0, Math.min(100, (row.metric?.value ?? 0) * 100))}%` }" /></div>
-              <strong>{{ formatPercent(row.metric?.value) }}</strong><small>n={{ row.metric?.count ?? 0 }}</small>
-            </div>
-          </section>
-          <section><h3>{{ copy.operations }}</h3><div class="operation-list">
-            <p><span>ACL gate</span><strong>{{ security?.hard_gate || copy.notMeasured }}</strong></p>
-            <p><span>Forbidden chunks</span><strong>{{ security?.forbidden_retrieval_count ?? '—' }}</strong></p>
-            <p><span>P95</span><strong>{{ performance?.p95_ms == null ? '—' : `${Math.round(performance.p95_ms)} ms` }}</strong></p>
-            <p><span>Error rate</span><strong>{{ formatPercent(performance?.error_rate) }}</strong></p>
-          </div></section>
-        </div>
-        <div class="glossary"><strong>{{ copy.glossary }}</strong><p>{{ copy.recall }}</p><p>{{ copy.ndcg }}</p><p>{{ copy.tokenF1 }}</p><p>{{ copy.exact }}</p></div>
-      </details>
+      <section class="run-facts card"><div><span>{{ copy.run }}</span><strong>{{ report.manifest?.run_id || '—' }}</strong></div><div><span>{{ copy.dataset }}</span><strong>{{ Array.isArray(report.manifest?.dataset_version) ? report.manifest.dataset_version.join(', ') : report.manifest?.dataset_version || '—' }}</strong></div><div><span>{{ copy.scope }}</span><strong>{{ retrieval?.eligible_cases ?? 0 }}</strong></div><div><span>{{ copy.measuredAt }}</span><strong>{{ formatDate(report.manifest?.created_at) }}</strong></div></section>
 
-      <details class="cases card">
-        <summary>{{ copy.cases }} · {{ generation?.case_success?.cases?.length ?? 0 }}</summary>
-        <div v-if="generation?.case_success?.cases?.length" class="case-table-wrap"><table>
-          <thead><tr><th>{{ copy.caseId }}</th><th>{{ copy.result }}</th><th>{{ copy.reason }}</th></tr></thead>
-          <tbody><tr v-for="item in generation.case_success.cases" :key="item.case_id">
-            <td><code>{{ item.case_id }}</code></td><td><span class="case-result" :class="caseOutcome(item)">{{ caseLabel(item) }}</span></td>
-            <td>{{ item.reasons.length ? item.reasons.map(reasonLabel).join(' · ') : copy.noReason }}</td>
-          </tr></tbody>
-        </table></div><p v-else>{{ copy.noCases }}</p>
-      </details>
+      <details class="advanced card"><summary><span>{{ copy.advanced }}</span><small>{{ copy.advancedHint }}</small></summary><div class="metric-groups"><section v-for="group in professionalMetrics" :key="group.group"><h3>{{ group.group }}</h3><div v-for="row in group.rows" :key="row.name" class="metric-row"><span>{{ row.name }}</span><div><i :style="{ width: `${Math.max(0, Math.min(100, (row.metric?.value ?? 0) * 100))}%` }" /></div><strong>{{ formatPercent(row.metric?.value) }}</strong><small>n={{ row.metric?.count ?? 0 }}</small></div></section><section><h3>{{ copy.operations }}</h3><div class="operation-list"><p><span>Security negative cases</span><strong>{{ securityCoverageKnown ? securityCases : '—' }}</strong></p><p><span>Forbidden chunks</span><strong>{{ securityCoverageKnown ? security?.forbidden_retrieval_count ?? 0 : '—' }}</strong></p><p><span>Performance requests</span><strong>{{ performance?.request_count ?? '—' }}</strong></p><p><span>P50 / P95 / P99</span><strong>{{ seconds(performance?.p50_ms) }}s / {{ seconds(performance?.p95_ms) }}s / {{ seconds(performance?.p99_ms) }}s</strong></p></div></section></div><div class="glossary"><strong>{{ copy.glossary }}</strong><p>{{ copy.recall }}</p><p>{{ copy.ndcg }}</p><p>{{ copy.tokenF1 }}</p><p>{{ copy.exact }}</p></div></details>
+
+      <details class="cases card"><summary>{{ copy.cases }} · {{ generation?.case_success?.cases?.length ?? 0 }}</summary><div v-if="generation?.case_success?.cases?.length" class="case-table-wrap"><table><thead><tr><th>{{ copy.caseQuestion }}</th><th>{{ copy.result }}</th><th>{{ copy.reason }}</th></tr></thead><tbody v-for="item in generation.case_success.cases" :key="item.case_id"><tr class="case-row"><td><button type="button" class="case-question" @click="expandedCase = expandedCase === item.case_id ? null : item.case_id"><code>{{ item.case_id }}</code><span>{{ item.question || copy.detailsUnavailable }}</span></button></td><td><span class="case-result" :class="caseOutcome(item)">{{ caseLabel(item) }}</span></td><td>{{ item.reasons.length ? item.reasons.map(reasonLabel).join(' · ') : copy.noReason }}</td></tr><tr v-if="expandedCase === item.case_id" class="case-detail-row"><td colspan="3"><div class="case-detail"><p v-if="!item.question && !item.answer">{{ copy.detailsUnavailable }}</p><section v-if="item.answer"><strong>{{ copy.systemAnswer }}</strong><p>{{ item.answer }}</p></section><section v-if="item.reference_answer"><strong>{{ copy.referenceAnswer }}</strong><p>{{ item.reference_answer }}</p></section><section><strong>{{ copy.sourceEvidence }}</strong><div v-if="item.sources?.length" class="case-sources"><blockquote v-for="(caseSource, index) in item.sources" :key="`${item.case_id}-${index}`"><header><span>#{{ caseSource.rank ?? index + 1 }}</span><strong>{{ caseSource.title || caseSource.document_id || caseSource.chunk_id || 'source' }}</strong></header><p>{{ caseSource.content }}</p><small>{{ caseSource.document_id }} · {{ caseSource.chunk_id }}</small></blockquote></div><p v-else>{{ copy.noSource }}</p></section><section v-if="item.judge_reason"><strong>LLM-as-Judge · {{ item.judge_model }} · {{ formatPercent(item.judge_score) }}</strong><p>{{ item.judge_reason }}</p></section></div></td></tr></tbody></table></div><p v-else>{{ copy.noCases }}</p></details>
     </template>
   </section>
 </template>
 
 <style scoped>
-.evaluation-dashboard{display:grid;gap:18px}.evaluation-heading{align-items:end;display:flex;gap:32px;justify-content:space-between;margin-bottom:18px}.evaluation-heading h2{font-size:clamp(34px,5vw,56px)}.evaluation-heading p:not(.eyebrow){color:#686158;font-family:var(--font-editorial);font-size:17px;line-height:1.65;margin:18px 0 0;max-width:680px}.evaluation-actions{display:flex;flex:0 0 auto;gap:9px}.evaluation-actions button{border-radius:1px;font-size:10px;font-weight:700;min-height:41px;padding:0 14px}.primary-action{background:#c9654b;border:1px solid #c9654b;color:#fffaf4}.secondary-action{background:transparent;border:1px solid #cfc6ba;color:#686158}.evaluation-actions button:disabled{cursor:wait;opacity:.5}.visually-hidden{height:1px;margin:-1px;opacity:0;overflow:hidden;position:absolute;width:1px}.empty{color:#817a70;min-height:220px;padding-top:70px;text-align:center}.empty strong{color:#a1432e;font:700 10px/1 ui-monospace,monospace;letter-spacing:.1em}.empty p{line-height:1.7;margin:16px auto 0;max-width:560px}
-.notice{align-items:center;display:flex;font-family:var(--font-editorial);font-size:13px;gap:18px;line-height:1.5;padding:14px 17px}.notice strong{flex:0 0 auto;font:700 10px/1.4 ui-monospace,monospace;letter-spacing:.07em}.notice.warning{background:#fff4df;border:1px solid #dfbe7c;color:#745b2e}.notice.scope{background:#edf5ef;border:1px solid #a9c7b2;color:#35634a}.notice.danger{background:#fff0eb;border:1px solid #dfa18f;color:#a1432e}
+.evaluation-dashboard{display:grid;gap:18px}.evaluation-heading{align-items:end;display:flex;gap:32px;justify-content:space-between;margin-bottom:18px}.evaluation-heading h2{font-size:clamp(34px,5vw,56px)}.evaluation-heading p:not(.eyebrow){color:#686158;font-family:var(--font-editorial);font-size:17px;line-height:1.65;margin:18px 0 0;max-width:720px}.evaluation-actions{display:flex;flex:0 0 auto;gap:9px}.evaluation-actions button,.review-controls button{border-radius:1px;font-size:10px;font-weight:700;min-height:41px;padding:0 14px}.primary-action{background:#c9654b;border:1px solid #c9654b;color:#fffaf4}.secondary-action{background:transparent;border:1px solid #cfc6ba;color:#686158}.evaluation-actions button:disabled{cursor:wait;opacity:.5}.visually-hidden{height:1px;margin:-1px;opacity:0;overflow:hidden;position:absolute;width:1px}.empty{color:#817a70;min-height:220px;padding-top:70px;text-align:center}.empty strong{color:#a1432e;font:700 10px/1 ui-monospace,monospace;letter-spacing:.1em}.empty p{line-height:1.7;margin:16px auto 0;max-width:560px}
+.notice{align-items:center;display:flex;font-family:var(--font-editorial);font-size:13px;gap:18px;line-height:1.5;padding:14px 17px}.notice strong{flex:0 0 auto;font:700 10px/1.4 ui-monospace,monospace;letter-spacing:.07em}.notice.warning,.notice.scope{background:#fff4df;border:1px solid #dfbe7c;color:#745b2e}.notice.danger,.review-error{background:#fff0eb;border:1px solid #dfa18f;color:#a1432e;padding:10px 12px}
+.coverage-card{padding:20px 28px}.coverage-card header{align-items:end;display:flex;justify-content:space-between}.coverage-card header div{align-items:center;display:flex;gap:12px}.coverage-card header span{color:#b55942;font:700 10px/1 ui-monospace,monospace}.coverage-card h3{font-family:var(--font-editorial);font-size:20px;font-weight:500;margin:0}.coverage-card header>strong{font:500 30px/1 var(--font-editorial)}.coverage-bar{background:#e8e1d8;height:8px;margin-top:16px}.coverage-bar i{background:#d0a354;display:block;height:100%;min-width:2px}.coverage-counts{display:grid;gap:14px;grid-template-columns:repeat(4,1fr);margin-top:15px}.coverage-counts p{margin:0}.coverage-counts span,.coverage-counts strong{display:block}.coverage-counts span{color:#91887c;font-size:9px;text-transform:uppercase}.coverage-counts strong{font:13px/1.5 ui-monospace,monospace;margin-top:3px}
 .verdict{align-items:center;display:grid;gap:22px;grid-template-columns:58px 1fr minmax(220px,.65fr)}.verdict-mark{align-items:center;background:#eee8df;border-radius:50%;color:#817568;display:flex;font:500 28px/1 var(--font-editorial);height:54px;justify-content:center;width:54px}.verdict>div span{color:#817a70;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.verdict h3{color:#39342f;font-family:var(--font-editorial);font-size:25px;font-weight:500;margin:7px 0 0}.verdict p{color:#686158;font-size:12px;line-height:1.6;margin:8px 0 0}.verdict aside{background:#f1ece4;padding:15px}.verdict aside strong{color:#817a70;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.verdict aside p{color:#49423b}.verdict.pass .verdict-mark{background:#e9f3ed;color:#3b7658}.verdict.fail .verdict-mark{background:#fff0eb;color:#a1432e}
-.beginner-checks{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}.check-card{border-top:3px solid #d5cabd;min-height:260px}.check-card.pass{border-top-color:#6b9e7e}.check-card.fail{border-top-color:#c9654b}.check-card.pending{border-top-color:#d0a354}.check-card.info{border-top-color:#668da1}.check-topline{align-items:center;display:flex;justify-content:space-between}.check-topline>span{color:#b55942;font:700 10px/1 ui-monospace,monospace}.check-topline em,.case-result{border:1px solid currentColor;font-size:9px;font-style:normal;font-weight:800;letter-spacing:.07em;padding:5px 7px;text-transform:uppercase}.pass .check-topline em,.case-result.pass{color:#3b7658}.fail .check-topline em,.case-result.fail{color:#a1432e}.pending .check-topline em,.case-result.review{color:#946d2d}.info .check-topline em{color:#4c7589}.check-card h3{color:#39342f;font-family:var(--font-editorial);font-size:22px;font-weight:500;margin:22px 0 0}.check-value{display:block;font:500 37px/1 var(--font-editorial);margin-top:18px}.check-card>p{color:#514a43;font-family:var(--font-editorial);font-size:14px;line-height:1.6;margin:16px 0 0}.check-card>small{border-top:1px solid #e3ddd4;color:#91887c;display:block;font-size:10px;line-height:1.55;margin-top:16px;padding-top:12px}
-.run-facts{display:grid;gap:18px;grid-template-columns:1.2fr 1fr .5fr 1fr}.run-facts span,.run-facts strong{display:block}.run-facts span{color:#91887c;font-size:9px;letter-spacing:.07em;text-transform:uppercase}.run-facts strong{color:#49423b;font:10px/1.5 ui-monospace,monospace;margin-top:6px;overflow-wrap:anywhere}details summary{color:#39342f;cursor:pointer;font-family:var(--font-editorial);font-size:19px;font-weight:500}.advanced summary span,.advanced summary small{display:block}.advanced summary small{color:#91887c;font-family:system-ui,sans-serif;font-size:10px;font-weight:400;margin:6px 0 0 18px}.metric-groups{display:grid;gap:28px;grid-template-columns:repeat(3,1fr);margin-top:28px}.metric-groups h3{border-bottom:1px solid #e3ddd4;color:#49423b;font-size:12px;margin:0 0 14px;padding-bottom:10px}.metric-row{align-items:center;display:grid;gap:8px;grid-template-columns:82px 1fr 48px;margin-top:12px}.metric-row>span{color:#686158;font-size:10px}.metric-row>div{background:#e8e1d8;height:5px}.metric-row i{background:#c9654b;display:block;height:100%}.metric-row strong{font:10px/1 ui-monospace,monospace;text-align:right}.metric-row small{color:#9a9288;font:8px/1 ui-monospace,monospace;grid-column:2/-1;text-align:right}.operation-list p{align-items:center;border-bottom:1px solid #e3ddd4;display:flex;font-size:10px;justify-content:space-between;margin:0;padding:9px 0}.operation-list span{color:#817a70}.operation-list strong{font-family:ui-monospace,monospace}.glossary{background:#f1ece4;margin-top:24px;padding:16px}.glossary strong{color:#817a70;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.glossary p{color:#686158;display:inline;font-size:10px;line-height:1.65;margin:0 14px 0 0}.cases[open] summary{border-bottom:1px solid #e3ddd4;padding-bottom:16px}.case-table-wrap{margin-top:18px;overflow-x:auto}table{border-collapse:collapse;width:100%}th{color:#91887c;font-size:9px;letter-spacing:.08em;padding:0 12px 10px;text-align:left;text-transform:uppercase}td{border-top:1px solid #e3ddd4;color:#686158;font-size:11px;line-height:1.5;padding:13px 12px}td code{color:#49423b;font-size:10px}
-@media(max-width:900px){.verdict{grid-template-columns:54px 1fr}.verdict aside{grid-column:1/-1}.metric-groups{grid-template-columns:1fr}.run-facts{grid-template-columns:repeat(2,1fr)}}@media(max-width:680px){.evaluation-heading{align-items:flex-start;flex-direction:column}.evaluation-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.notice{align-items:flex-start;flex-direction:column;gap:7px}.verdict{grid-template-columns:1fr}.verdict aside{grid-column:auto}.beginner-checks,.run-facts{grid-template-columns:1fr}}
+.beginner-checks{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}.check-card{border-top:3px solid #d5cabd;min-height:280px}.check-card.pass{border-top-color:#6b9e7e}.check-card.fail{border-top-color:#c9654b}.check-card.pending{border-top-color:#d0a354}.check-card.info{border-top-color:#668da1}.check-topline{align-items:center;display:flex;justify-content:space-between}.check-topline>span{color:#b55942;font:700 10px/1 ui-monospace,monospace}.check-topline em,.case-result{border:1px solid currentColor;font-size:9px;font-style:normal;font-weight:800;letter-spacing:.07em;padding:5px 7px;text-transform:uppercase}.pass .check-topline em,.case-result.pass{color:#3b7658}.fail .check-topline em,.case-result.fail{color:#a1432e}.pending .check-topline em,.case-result.review{color:#946d2d}.info .check-topline em{color:#4c7589}.check-card h3{color:#39342f;font-family:var(--font-editorial);font-size:22px;font-weight:500;margin:22px 0 0}.check-value{display:block;font:500 34px/1 var(--font-editorial);margin-top:18px}.check-card>p{color:#514a43;font-family:var(--font-editorial);font-size:14px;line-height:1.6;margin:16px 0 0}.check-card>small{border-top:1px solid #e3ddd4;color:#91887c;display:block;font-size:10px;line-height:1.55;margin-top:16px;padding-top:12px}
+.run-facts{display:grid;gap:18px;grid-template-columns:1.2fr 1fr .5fr 1fr}.run-facts span,.run-facts strong{display:block}.run-facts span{color:#91887c;font-size:9px;letter-spacing:.07em;text-transform:uppercase}.run-facts strong{color:#49423b;font:10px/1.5 ui-monospace,monospace;margin-top:6px;overflow-wrap:anywhere}details summary{color:#39342f;cursor:pointer;font-family:var(--font-editorial);font-size:19px;font-weight:500}.advanced summary span,.advanced summary small{display:block}.advanced summary small{color:#91887c;font-family:system-ui,sans-serif;font-size:10px;font-weight:400;margin:6px 0 0 18px}.metric-groups{display:grid;gap:28px;grid-template-columns:repeat(3,1fr);margin-top:28px}.metric-groups h3{border-bottom:1px solid #e3ddd4;color:#49423b;font-size:12px;margin:0 0 14px;padding-bottom:10px}.metric-row{align-items:center;display:grid;gap:8px;grid-template-columns:100px 1fr 48px;margin-top:12px}.metric-row>span{color:#686158;font-size:10px}.metric-row>div{background:#e8e1d8;height:5px}.metric-row i{background:#c9654b;display:block;height:100%}.metric-row strong{font:10px/1 ui-monospace,monospace;text-align:right}.metric-row small{color:#9a9288;font:8px/1 ui-monospace,monospace;grid-column:2/-1;text-align:right}.operation-list p{align-items:center;border-bottom:1px solid #e3ddd4;display:flex;font-size:10px;gap:12px;justify-content:space-between;margin:0;padding:9px 0}.operation-list span{color:#817a70}.operation-list strong{font-family:ui-monospace,monospace;text-align:right}.glossary{background:#f1ece4;margin-top:24px;padding:16px}.glossary strong{color:#817a70;font-size:9px;letter-spacing:.08em;text-transform:uppercase}.glossary p{color:#686158;display:inline;font-size:10px;line-height:1.65;margin:0 14px 0 0}
+.cases[open] summary{border-bottom:1px solid #e3ddd4;padding-bottom:16px}.case-table-wrap{margin-top:18px;overflow-x:auto}table{border-collapse:collapse;width:100%}th{color:#91887c;font-size:9px;letter-spacing:.08em;padding:0 12px 10px;text-align:left;text-transform:uppercase}th:first-child{width:45%}td{border-top:1px solid #e3ddd4;color:#686158;font-size:11px;line-height:1.5;padding:13px 12px;vertical-align:top}.case-question{background:transparent;border:0;color:inherit;cursor:pointer;display:grid;gap:5px;padding:0;text-align:left}.case-question code{color:#49423b;font-size:10px}.case-question span{color:#39342f;font-family:var(--font-editorial);font-size:13px}.case-row:hover{background:#faf6f0}.case-detail-row td{background:#f6f1e9;padding:0}.case-detail{display:grid;gap:18px;padding:22px 28px}.case-detail section>strong{color:#817a70;display:block;font-size:9px;letter-spacing:.08em;margin-bottom:6px;text-transform:uppercase}.case-detail p{line-height:1.65;margin:0}.case-sources{display:grid;gap:10px}.case-sources blockquote,.review-item blockquote{background:#fffaf4;border-left:3px solid #d0a354;margin:0;padding:12px 14px}.case-sources blockquote header{align-items:center;display:flex;gap:9px}.case-sources blockquote header span{font:9px/1 ui-monospace,monospace}.case-sources blockquote p,.review-item blockquote p{margin:7px 0}.case-sources blockquote small{color:#91887c;font:9px/1.4 ui-monospace,monospace}
+.review-workbench{border-top:3px solid #668da1;display:grid;gap:20px}.review-workbench h3{font-family:var(--font-editorial);font-size:25px;font-weight:500;margin:6px 0}.review-workbench header p:not(.eyebrow){color:#686158;line-height:1.6;margin:0;max-width:760px}.review-controls{align-items:end;display:grid;gap:12px;grid-template-columns:1fr 180px auto}.review-controls label span{color:#817a70;display:block;font-size:9px;margin-bottom:6px;text-transform:uppercase}.review-controls input,.review-controls select,.review-item textarea{background:#fffaf4;border:1px solid #cfc6ba;box-sizing:border-box;color:#49423b;min-height:40px;padding:9px;width:100%}.review-list{display:grid;gap:12px}.review-item{border-top:1px solid #d9d0c5;padding-top:18px}.review-meta{align-items:center;color:#91887c;display:flex;flex-wrap:wrap;font-size:9px;gap:12px}.review-meta code{color:#49423b}.review-item h4{font-family:var(--font-editorial);font-size:18px;font-weight:500;margin:12px 0 7px}.review-answer{background:#f6f1e9;line-height:1.65;padding:13px}.review-item details{margin:12px 0}.review-item details summary{font-size:13px}.review-item textarea{margin-top:10px}.review-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.review-buttons button{background:transparent;border:1px solid #cfc6ba;color:#686158;font-size:10px;padding:8px 10px}.review-buttons button:hover{border-color:#c9654b;color:#a1432e}.review-verdict{color:#3b7658}
+@media(max-width:900px){.verdict{grid-template-columns:54px 1fr}.verdict aside{grid-column:1/-1}.metric-groups{grid-template-columns:1fr}.run-facts,.coverage-counts{grid-template-columns:repeat(2,1fr)}.review-controls{grid-template-columns:1fr 1fr}.review-controls button{grid-column:1/-1}}@media(max-width:680px){.evaluation-heading{align-items:flex-start;flex-direction:column}.evaluation-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.notice{align-items:flex-start;flex-direction:column;gap:7px}.verdict{grid-template-columns:1fr}.verdict aside{grid-column:auto}.beginner-checks,.run-facts,.coverage-counts,.review-controls{grid-template-columns:1fr}.evaluation-actions button:last-of-type{grid-column:1/-1}.case-detail{padding:18px}.review-controls button{grid-column:auto}}
 </style>

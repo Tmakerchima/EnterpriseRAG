@@ -12,7 +12,7 @@ The optional `.[judge]` extra enables the lazy DeepEval adapter. It emits struct
 
 ## Data boundary
 
-No EnterpriseRAG-Bench documents, private answers, database dumps, secrets or raw run artifacts are committed. Use the official [EnterpriseRAG-Bench release](https://github.com/onyx-dot-app/EnterpriseRAG-Bench) or dataset only after checking release/version/license/SHA-256. A local slice is not evidence for full-corpus coverage. Classify each case as fully supported, partially supported or unsupported before retrieval metrics. A redacted `summary.json` without questions, answers or retrieved contexts may be published to `frontend/public/evaluation/latest.json` for the scorecard.
+No EnterpriseRAG-Bench documents, database dumps, secrets or raw run artifacts are committed. Use the official [EnterpriseRAG-Bench release](https://github.com/onyx-dot-app/EnterpriseRAG-Bench) or dataset only after checking release/version/license/SHA-256. A local slice is not evidence for full-corpus coverage. Classify each case as fully supported, partially supported or unsupported before retrieval metrics. A report may expose case questions, generated answers and bounded source excerpts for audit UI only when the target deployment is authorized to display that content; never publish private enterprise content through a public static report.
 
 For an official source slice, coverage can be derived directly from the ZIP filenames without extracting or reading document content:
 

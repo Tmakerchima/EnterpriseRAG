@@ -6,6 +6,7 @@ from enterprise_rag_eval.metrics import (
     recall,
     score_generation,
     score_retrieval,
+    score_security,
     wilson_interval,
 )
 from enterprise_rag_eval.models import EvaluationCase
@@ -98,3 +99,35 @@ def test_citation_must_reference_a_final_context_chunk() -> None:
     })
 
     assert result["citation_validity"]["value"] == 0.0
+
+
+def test_security_score_requires_dedicated_negative_cases() -> None:
+    ordinary = EvaluationCase(case_id="ordinary", question="q", expected_document_ids=("doc-a",))
+    negative = EvaluationCase(
+        case_id="acl-negative",
+        question="q",
+        answerability="UNANSWERABLE",
+        category="security",
+        forbidden_document_ids=("secret",),
+    )
+
+    result = score_security([ordinary, negative], {
+        "ordinary": {"document_ids": ["doc-a"]},
+        "acl-negative": {"document_ids": []},
+    })
+
+    assert result["status"] == "MEASURED"
+    assert result["observed_requests"] == 2
+    assert result["cases"] == 1
+    assert result["acl_negative_cases"] == 1
+    assert result["hard_gate"] == "PASS"
+
+
+def test_security_score_does_not_call_ordinary_questions_leak_tests() -> None:
+    case = EvaluationCase(case_id="ordinary", question="q", expected_document_ids=("doc-a",))
+    result = score_security([case], {"ordinary": {"document_ids": ["doc-a"]}})
+
+    assert result["status"] == "NOT_EXECUTED"
+    assert result["cases"] == 0
+    assert result["observed_requests"] == 1
+    assert result["hard_gate"] == "NOT_EXECUTED"

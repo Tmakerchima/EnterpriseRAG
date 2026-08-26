@@ -85,6 +85,10 @@ let accessVersion = 0
 const health = ref<Health | null>(null)
 const healthLoading = ref(false)
 const feedbackSent = ref(false)
+const reviewQueued = ref(false)
+const reviewSubmitting = ref(false)
+const feedbackError = ref('')
+const answeredQuestion = ref('')
 
 const copy = {
   zh: {
@@ -141,6 +145,12 @@ const copy = {
     metricsEmpty: '回答完成后显示检索和模型耗时。',
     candidates: '候选片段',
     contextChunks: '上下文片段',
+    feedbackPrompt: '这个回答有帮助吗？',
+    helpful: '有帮助',
+    needsReview: '送人工审核',
+    feedbackThanks: '谢谢，反馈已记录。',
+    reviewQueued: '问题、回答与引用片段已进入评测页的人工审核队列。',
+    reviewQueueFailed: '反馈已记录，但人工审核入队失败，请检查 V6 数据库迁移。',
     footer: 'EnterpriseRAG · 企业知识库检索与评测工作台',
     api: 'API',
     notConfigured: '未配置',
@@ -218,6 +228,12 @@ const copy = {
     metricsEmpty: 'Retrieval and model timings appear after the answer completes.',
     candidates: 'candidates',
     contextChunks: 'context chunks',
+    feedbackPrompt: 'Was this answer useful?',
+    helpful: 'Helpful',
+    needsReview: 'Send to human review',
+    feedbackThanks: 'Thanks — feedback was recorded.',
+    reviewQueued: 'The question, answer, and cited excerpts are now in the Evaluation human-review queue.',
+    reviewQueueFailed: 'Feedback was recorded, but review queueing failed. Check the V6 database migration.',
     footer: 'EnterpriseRAG · enterprise retrieval and evaluation workspace',
     api: 'API',
     notConfigured: 'not configured',
@@ -360,6 +376,10 @@ async function ask(questionOverride?: string) {
   sources.value = []
   metrics.value = null
   feedbackSent.value = false
+  reviewQueued.value = false
+  reviewSubmitting.value = false
+  feedbackError.value = ''
+  answeredQuestion.value = trimmed
   error.value = ''
   expandedSource.value = null
   const controller = new AbortController()
@@ -457,6 +477,7 @@ function handleEvent(event: string) {
 
 async function sendFeedback(rating: 'positive' | 'negative') {
   if (!metrics.value?.request_id || feedbackSent.value || !apiBase) return
+  feedbackError.value = ''
   try {
     const response = await fetch(`${apiBase}/api/enterprise/feedback`, {
       method: 'POST',
@@ -465,6 +486,39 @@ async function sendFeedback(rating: 'positive' | 'negative') {
     })
     if (response.ok) feedbackSent.value = true
   } catch { /* feedback is additive and must not affect the answer */ }
+  if (rating === 'negative') await queueForHumanReview()
+}
+
+async function queueForHumanReview() {
+  if (!metrics.value?.request_id || !answeredQuestion.value || !answer.value || !apiBase || reviewSubmitting.value) return
+  reviewSubmitting.value = true
+  try {
+    const response = await fetch(`${apiBase}/api/enterprise/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: metrics.value.request_id,
+        question: answeredQuestion.value,
+        answer: answer.value,
+        accessRole: role.value,
+        strategy: strategy.value,
+        sources: sources.value.map((item) => ({
+          rank: item.rank,
+          title: item.title,
+          document_id: item.document_id,
+          chunk_id: item.chunk_id,
+          chunk: item.chunk,
+        })),
+      }),
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    reviewQueued.value = true
+    feedbackSent.value = true
+  } catch {
+    feedbackError.value = t('reviewQueueFailed')
+  } finally {
+    reviewSubmitting.value = false
+  }
 }
 </script>
 
@@ -589,11 +643,12 @@ async function sendFeedback(rating: 'positive' | 'negative') {
           <small>{{ t('emptyNote') }}</small>
         </div>
         <div v-if="metrics && !feedbackSent" class="feedback-row" aria-label="Answer feedback">
-          <span>Was this answer useful?</span>
-          <button type="button" @click="sendFeedback('positive')">Helpful</button>
-          <button type="button" @click="sendFeedback('negative')">Needs review</button>
+          <span>{{ t('feedbackPrompt') }}</span>
+          <button type="button" @click="sendFeedback('positive')">{{ t('helpful') }}</button>
+          <button type="button" :disabled="reviewSubmitting" @click="sendFeedback('negative')">{{ reviewSubmitting ? '…' : t('needsReview') }}</button>
         </div>
-        <div v-else-if="feedbackSent" class="feedback-row muted">Thanks — feedback queued for async evaluation.</div>
+        <div v-else-if="feedbackSent" class="feedback-row muted">{{ reviewQueued ? t('reviewQueued') : t('feedbackThanks') }}</div>
+        <div v-if="feedbackError" class="feedback-row error-message">{{ feedbackError }}</div>
       </section>
 
       <section class="results-grid">
@@ -652,7 +707,7 @@ async function sendFeedback(rating: 'positive' | 'negative') {
       </template>
 
       <ChunkPool v-else-if="activeView === 'chunks'" v-model:role="role" :api-base="apiBase" :locale="locale" :ready="queryReady" />
-      <EvaluationDashboard v-else :locale="locale" />
+      <EvaluationDashboard v-else :locale="locale" :api-base="apiBase" />
     </main>
 
     <footer>

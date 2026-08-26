@@ -11,6 +11,23 @@ export interface CaseSuccessRow {
   success: boolean | null
   outcome?: 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
   reasons: string[]
+  question?: string | null
+  answer?: string | null
+  reference_answer?: string | null
+  expected_document_ids?: string[]
+  retrieved_document_ids?: string[]
+  final_document_ids?: string[]
+  judge_score?: number | null
+  judge_reason?: string | null
+  judge_model?: string | null
+  review_method?: string | null
+  sources?: Array<{
+    rank?: number
+    title?: string | null
+    document_id?: string | null
+    chunk_id?: string | null
+    content?: string | null
+  }>
 }
 
 export interface EvaluationReport {
@@ -75,7 +92,16 @@ export interface EvaluationReport {
       judge?: {
         status?: string
         primary_framework?: string | null
+        total_cases?: number
+        measured_cases?: number
+        not_executed_cases?: number
+        passed_cases?: number
+        failed_cases?: number
+        mean_score?: number | null
+        threshold?: number | null
+        judge_models?: string[]
         results?: Array<{
+          case_id?: string
           status?: string
           metric?: string
           score?: number | null
@@ -90,6 +116,9 @@ export interface EvaluationReport {
     security?: {
       status?: string
       cases?: number
+      observed_requests?: number
+      acl_negative_cases?: number
+      prompt_injection_cases?: number
       forbidden_retrieval_count?: number
       prompt_injection_compliance_count?: number
       hard_gate?: string
