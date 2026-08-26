@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -70,9 +71,10 @@ public class EnterpriseChatService {
      * 原始证据交给 Chat LLM。返回流的顺序固定为：来源帧、答案文本、指标帧。</p>
      *
      * @param request 前端提交的问题、角色、租户和检索策略
-     * @return SSE 字符串流；错误也会被编码为 {@code @@ERROR@@} 帧
+     * @return 标准 SSE 事件流；错误也使用带版本号的 {@code error} 事件
      */
-    public Flux<String> streamAnswer(ChatRequest request, String requestedRequestId, String requestedTraceId) {
+    public Flux<ServerSentEvent<String>> streamAnswer(ChatRequest request, String requestedRequestId,
+                                                       String requestedTraceId) {
         return Flux.defer(() -> {
             // defer 使每次订阅都重新创建 requestId、计时器和检索结果，避免多个订阅共享状态。
             String requestId = validId(requestedRequestId);
@@ -108,7 +110,7 @@ public class EnterpriseChatService {
             String groundedPrompt = groundedPrompt(question, access, retrieval.hits());
 
             // 没有授权证据时直接拒答，避免把“请依据空 context 回答”交给模型后仍产生幻觉。
-            Flux<String> answer = retrieval.hits().isEmpty()
+            Flux<ServerSentEvent<String>> answer = retrieval.hits().isEmpty()
                     ? Flux.just(tokenFrame(requestId, traceId,
                             "Insufficient evidence in the authorized corpus to answer this question."))
                     // 有证据时才调用 ChatClient；模型只能看到已完成 ACL 与 context budget 的原文。
@@ -160,7 +162,8 @@ public class EnterpriseChatService {
                 """.formatted(access.role(), context, question);
     }
 
-    private String sourcesFrame(String requestId, String traceId, EnterpriseRetrievalResult retrieval) {
+    private ServerSentEvent<String> sourcesFrame(String requestId, String traceId,
+                                                  EnterpriseRetrievalResult retrieval) {
         List<Map<String, Object>> sources = retrieval.hits().stream().map(hit -> {
             Map<String, Object> source = new LinkedHashMap<>();
             source.put("source_type", hit.sourceType());
@@ -185,7 +188,8 @@ public class EnterpriseChatService {
         return SseEvent.encode(objectMapper, "sources", requestId, traceId, frame);
     }
 
-    private String metricsFrame(String requestId, String traceId, EnterpriseRetrievalResult retrieval, long started) {
+    private ServerSentEvent<String> metricsFrame(String requestId, String traceId,
+                                                  EnterpriseRetrievalResult retrieval, long started) {
         EnterpriseRetrievalMetrics values = retrieval.metrics();
         Map<String, Object> metrics = new LinkedHashMap<>();
         metrics.put("request_id", requestId);
@@ -211,19 +215,19 @@ public class EnterpriseChatService {
         return SseEvent.encode(objectMapper, "metrics", requestId, traceId, metrics);
     }
 
-    private String errorFrame(String requestId, String message) {
+    private ServerSentEvent<String> errorFrame(String requestId, String message) {
         return errorFrame(requestId, validId(null), message);
     }
 
-    private String errorFrame(String requestId, String traceId, String message) {
+    private ServerSentEvent<String> errorFrame(String requestId, String traceId, String message) {
         return SseEvent.encode(objectMapper, "error", requestId, traceId, Map.of("request_id", requestId, "message", message));
     }
 
-    private String doneFrame(String requestId, String traceId) {
+    private ServerSentEvent<String> doneFrame(String requestId, String traceId) {
         return SseEvent.encode(objectMapper, "done", requestId, traceId, Map.of("status", "complete"));
     }
 
-    private String tokenFrame(String requestId, String traceId, String text) {
+    private ServerSentEvent<String> tokenFrame(String requestId, String traceId, String text) {
         return SseEvent.encode(objectMapper, "token", requestId, traceId, Map.of("text", text));
     }
 
