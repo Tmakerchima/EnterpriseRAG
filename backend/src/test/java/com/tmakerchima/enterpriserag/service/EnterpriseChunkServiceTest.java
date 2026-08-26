@@ -22,8 +22,8 @@ class EnterpriseChunkServiceTest {
 
     @Test
     void listTrimsQueryAndBoundsPagination() {
-        when(repository.countChunks(access, "upload limits")).thenReturn(73L);
-        when(repository.listChunks(access, "upload limits", 50, 0)).thenReturn(List.of());
+        when(repository.pageChunks(access, "upload limits", 50, 0))
+                .thenReturn(new EnterpriseDocumentRepository.ChunkSearchPage(List.of(), 73L));
 
         EnterpriseChunkService.ChunkPage page = service.list(access, "  upload limits  ", -2, 500);
 
@@ -31,7 +31,7 @@ class EnterpriseChunkServiceTest {
         assertThat(page.size()).isEqualTo(50);
         assertThat(page.total()).isEqualTo(73);
         assertThat(page.totalPages()).isEqualTo(2);
-        verify(repository).listChunks(access, "upload limits", 50, 0);
+        verify(repository).pageChunks(access, "upload limits", 50, 0);
     }
 
     @Test
@@ -50,12 +50,12 @@ class EnterpriseChunkServiceTest {
     void listBoundsInspectionQueryLength() {
         String longQuery = "x".repeat(300);
         String bounded = "x".repeat(200);
-        when(repository.countChunks(access, bounded)).thenReturn(0L);
-        when(repository.listChunks(access, bounded, 12, 0)).thenReturn(List.of());
+        when(repository.pageChunks(access, bounded, 12, 0))
+                .thenReturn(new EnterpriseDocumentRepository.ChunkSearchPage(List.of(), 0L));
 
         EnterpriseChunkService.ChunkPage page = service.list(access, longQuery, 0, null);
 
         assertThat(page.query()).hasSize(200);
-        verify(repository).countChunks(access, bounded);
+        verify(repository).pageChunks(access, bounded, 12, 0);
     }
 }

@@ -1,21 +1,22 @@
 package com.tmakerchima.enterpriserag.controller;
 
 import com.tmakerchima.enterpriserag.service.EnterpriseHumanReviewService;
+import com.tmakerchima.enterpriserag.service.EnterpriseReviewJudgeService;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 class EnterpriseHumanReviewControllerTest {
 
     @Test
-    void reviewQueueReadRequiresTheAdminToken() {
+    void reviewQueueReadDoesNotRequireAnAdminToken() {
         EnterpriseHumanReviewService service = mock(EnterpriseHumanReviewService.class);
-        EnterpriseHumanReviewController controller = new EnterpriseHumanReviewController(service, "secret-token");
+        EnterpriseReviewJudgeService judge = mock(EnterpriseReviewJudgeService.class);
+        EnterpriseHumanReviewController controller = new EnterpriseHumanReviewController(service, judge);
 
-        assertThat(controller.list(null, "PENDING", 100).getStatusCode().value()).isEqualTo(403);
-        assertThat(controller.list("wrong-token", "PENDING", 100).getStatusCode().value()).isEqualTo(403);
-        verifyNoInteractions(service);
+        assertThat(controller.list("PENDING", 100).getStatusCode().value()).isEqualTo(200);
+        verify(service).list("PENDING", 100);
     }
 }

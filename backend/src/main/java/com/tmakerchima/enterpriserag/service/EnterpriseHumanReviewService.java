@@ -76,6 +76,23 @@ public class EnterpriseHumanReviewService {
         return find(reviewId);
     }
 
+    public ReviewItem get(UUID reviewId) {
+        return find(reviewId);
+    }
+
+    public ReviewItem saveJudge(UUID reviewId, EnterpriseReviewJudgeService.JudgeSuggestion suggestion) {
+        if (suggestion == null) throw new IllegalArgumentException("judge suggestion must not be null");
+        int updated = jdbcTemplate.update("""
+                UPDATE rag_human_reviews
+                SET judge_status = 'COMPLETED', judge_verdict = ?, judge_score = ?,
+                    judge_reason = ?, judge_model = ?, judged_at = now()
+                WHERE review_id = ?
+                """, suggestion.verdict(), suggestion.score(), limited(suggestion.reason(), 2_000),
+                limited(suggestion.model(), 160), reviewId);
+        if (updated == 0) throw new NoSuchElementException("review not found");
+        return find(reviewId);
+    }
+
     private ReviewItem find(UUID reviewId) {
         List<ReviewItem> rows = jdbcTemplate.query(selectSql() + " WHERE review_id = ?", this::map, reviewId);
         if (rows.isEmpty()) throw new NoSuchElementException("review not found");
@@ -91,19 +108,25 @@ public class EnterpriseHumanReviewService {
     private String selectSql() {
         return """
                 SELECT review_id, request_id, question, answer, sources::text, access_role,
-                       strategy, status, verdict, reviewer_comment, created_at, reviewed_at
+                       strategy, status, verdict, reviewer_comment,
+                       judge_status, judge_verdict, judge_score, judge_reason, judge_model, judged_at,
+                       created_at, reviewed_at
                 FROM rag_human_reviews
                 """;
     }
 
     private ReviewItem map(java.sql.ResultSet result, int rowNumber) throws java.sql.SQLException {
         Timestamp reviewed = result.getTimestamp("reviewed_at");
+        Timestamp judged = result.getTimestamp("judged_at");
         return new ReviewItem(
                 result.getObject("review_id", UUID.class), result.getString("request_id"),
                 result.getString("question"), result.getString("answer"),
                 parseSources(result.getString("sources")), result.getString("access_role"),
                 result.getString("strategy"), result.getString("status"), result.getString("verdict"),
-                result.getString("reviewer_comment"), result.getTimestamp("created_at").toInstant(),
+                result.getString("reviewer_comment"), result.getString("judge_status"),
+                result.getString("judge_verdict"), result.getObject("judge_score", Double.class),
+                result.getString("judge_reason"), result.getString("judge_model"),
+                judged == null ? null : judged.toInstant(), result.getTimestamp("created_at").toInstant(),
                 reviewed == null ? null : reviewed.toInstant());
     }
 
@@ -167,5 +190,7 @@ public class EnterpriseHumanReviewService {
     public record ReviewItem(UUID reviewId, String requestId, String question, String answer,
                              List<Map<String, Object>> sources, String accessRole, String strategy,
                              String status, String verdict, String reviewerComment,
+                             String judgeStatus, String judgeVerdict, Double judgeScore,
+                             String judgeReason, String judgeModel, Instant judgedAt,
                              Instant createdAt, Instant reviewedAt) {}
 }

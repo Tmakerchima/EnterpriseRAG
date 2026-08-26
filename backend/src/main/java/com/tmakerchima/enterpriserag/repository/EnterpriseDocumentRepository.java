@@ -98,25 +98,91 @@ public class EnterpriseDocumentRepository {
     public List<EnterpriseChunkView> listChunks(EnterpriseAccessContext access, String query,
                                                  int limit, long offset) {
         String normalizedQuery = query == null ? "" : query.trim();
-        String pattern = "%" + normalizedQuery + "%";
+        if (normalizedQuery.isEmpty()) {
+            return listVisibleChunks(access, limit, offset).items();
+        }
+        return searchVisibleChunks(access, normalizedQuery, limit, offset).items();
+    }
+
+    /**
+     * Returns the requested chunk page and its total in one database round trip.
+     * The previous implementation ran the same ACL/content scan twice (COUNT +
+     * page query), which was especially expensive over a remote PostgreSQL
+     * connection.
+     */
+    public ChunkSearchPage pageChunks(EnterpriseAccessContext access, String query,
+                                      int limit, long offset) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        return normalizedQuery.isEmpty()
+                ? listVisibleChunks(access, limit, offset)
+                : searchVisibleChunks(access, normalizedQuery, limit, offset);
+    }
+
+    private ChunkSearchPage listVisibleChunks(EnterpriseAccessContext access, int limit, long offset) {
         String sql = """
                 SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
                        c.content, c.chunk_index, c.token_count, c.embedding IS NOT NULL AS embedded,
                        d.department, d.access_level, c.metadata,
                        (SELECT dataset_version FROM enterprise_corpora v
-                        WHERE v.corpus_id = c.corpus_id) AS corpus_version
+                        WHERE v.corpus_id = c.corpus_id) AS corpus_version,
+                       count(*) OVER () AS total_count
                 FROM enterprise_chunks c
                 JOIN enterprise_documents d ON d.document_id = c.document_id
                 WHERE d.deleted_at IS NULL
                   AND d.corpus_id = (SELECT corpus_id FROM enterprise_corpora
                                      WHERE state = 'ACTIVE' LIMIT 1)
-                  AND (? = '' OR d.title ILIKE ? OR d.external_id ILIKE ? OR c.content ILIKE ?)
                 """ + ACL_FILTER + """
                 ORDER BY d.title, c.chunk_index, c.chunk_id
                 LIMIT ? OFFSET ?
                 """;
-        return jdbcTemplate.query(sql, this::mapChunk, normalizedQuery, pattern, pattern, pattern,
-                access.role(), access.department(), access.tenantId(), limit, offset);
+        return mapChunkPage(jdbcTemplate.query(sql, this::mapChunkRow,
+                access.role(), access.department(), access.tenantId(), limit, offset));
+    }
+
+    private ChunkSearchPage searchVisibleChunks(EnterpriseAccessContext access, String query,
+                                                int limit, long offset) {
+        String pattern = "%" + query + "%";
+        String sql = """
+                WITH active_corpus AS (
+                    SELECT corpus_id FROM enterprise_corpora WHERE state = 'ACTIVE' LIMIT 1
+                ), query_text AS (
+                    SELECT websearch_to_tsquery('simple', ?) AS query
+                ), matching AS MATERIALIZED (
+                    SELECT c.chunk_id, ts_rank_cd(c.search_vector, query_text.query) AS search_score
+                    FROM enterprise_chunks c
+                    CROSS JOIN active_corpus a
+                    CROSS JOIN query_text
+                    WHERE c.corpus_id = a.corpus_id
+                      AND c.search_vector @@ query_text.query
+                    UNION ALL
+                    SELECT c.chunk_id, 2.0::real AS search_score
+                    FROM enterprise_documents d
+                    JOIN enterprise_chunks c ON c.document_id = d.document_id
+                    CROSS JOIN active_corpus a
+                    WHERE d.deleted_at IS NULL
+                      AND d.corpus_id = a.corpus_id
+                      AND (d.title ILIKE ? OR d.external_id ILIKE ?)
+                ), ranked AS (
+                    SELECT chunk_id, max(search_score) AS search_score
+                    FROM matching
+                    GROUP BY chunk_id
+                )
+                SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
+                       c.content, c.chunk_index, c.token_count, c.embedding IS NOT NULL AS embedded,
+                       d.department, d.access_level, c.metadata,
+                       (SELECT dataset_version FROM enterprise_corpora v
+                        WHERE v.corpus_id = c.corpus_id) AS corpus_version,
+                       count(*) OVER () AS total_count
+                FROM ranked r
+                JOIN enterprise_chunks c ON c.chunk_id = r.chunk_id
+                JOIN enterprise_documents d ON d.document_id = c.document_id
+                WHERE d.deleted_at IS NULL
+                """ + ACL_FILTER + """
+                ORDER BY r.search_score DESC, d.title, c.chunk_index, c.chunk_id
+                LIMIT ? OFFSET ?
+                """;
+        return mapChunkPage(jdbcTemplate.query(sql, this::mapChunkRow, query, pattern, pattern,
+                access.role(), access.department(), access.tenantId(), limit, offset));
     }
 
     public long countChunks(EnterpriseAccessContext access, String query) {
@@ -200,6 +266,15 @@ public class EnterpriseDocumentRepository {
                 Collections.unmodifiableMap(new LinkedHashMap<>(readMetadata(rs.getString("metadata")))));
     }
 
+    private ChunkRow mapChunkRow(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        return new ChunkRow(mapChunk(rs, rowNum), rs.getLong("total_count"));
+    }
+
+    private ChunkSearchPage mapChunkPage(List<ChunkRow> rows) {
+        long total = rows.isEmpty() ? 0 : rows.getFirst().total();
+        return new ChunkSearchPage(rows.stream().map(ChunkRow::chunk).toList(), total);
+    }
+
     private Map<String, Object> readMetadata(String value) {
         if (value == null || value.isBlank()) return Map.of();
         try {
@@ -219,5 +294,9 @@ public class EnterpriseDocumentRepository {
         }
         return result.append(']').toString();
     }
+
+    private record ChunkRow(EnterpriseChunkView chunk, long total) {}
+
+    public record ChunkSearchPage(List<EnterpriseChunkView> items, long total) {}
 
 }

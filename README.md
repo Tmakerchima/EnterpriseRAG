@@ -84,7 +84,7 @@ npm run build
    docker compose up -d postgres
    ```
 
-2. 按顺序应用 `backend/src/main/resources/db/migration/V1__...` 到 `V5__...`。本地可使用：
+2. 按顺序应用 `backend/src/main/resources/db/migration/V1__...` 到当前最新迁移（目前为 `V7__...`）。V6 创建人工审核队列，V7 增加 LLM Judge 建议字段。本地可使用：
 
    ```powershell
    Get-ChildItem backend/src/main/resources/db/migration/*.sql |
@@ -129,6 +129,18 @@ GET /api/enterprise/chunks/{chunkId}?role=engineering&tenantId=default
 ```
 
 列表有分页，单条接口返回完整可引用 `content`。两个接口都只读 ACTIVE corpus，并复用在线检索的 tenant/ACL SQL；不会返回 embedding、`contextual_prefix` 或 `index_content`。请求与响应示例见 [切片 API 文档](docs/chunk-api.md)。
+
+切片由 Python 导入器按 Markdown 标题、段落和 fenced code block 保留结构，再用 `cl100k_base` 做 token 预算；默认最多 700 tokens，同章节最多重叠 80 tokens。切片池空查询使用 ACL 后的索引分页；关键词查询使用现有 GIN `search_vector`，标题和 external ID 作为补充匹配，分页数据与总数在同一次数据库往返中返回。
+
+## 人工审核与 LLM Judge
+
+```http
+GET   /api/enterprise/reviews?status=PENDING
+POST  /api/enterprise/reviews/{reviewId}/judge
+PATCH /api/enterprise/reviews/{reviewId}
+```
+
+当前单用户工作台不要求管理员令牌。LLM Judge 只写入建议结论、groundedness 分数、理由和模型名；它不会把记录自动标成已审核。最终 `verdict` 只由人工 `PATCH` 确认。部署为多用户系统前必须重新接入身份认证和审核权限。
 
 ## 最简单的评测理解
 

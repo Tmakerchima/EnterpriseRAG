@@ -30,9 +30,17 @@ public class EnterpriseChunkService {
         if (normalizedQuery.length() > MAX_QUERY_LENGTH) {
             normalizedQuery = normalizedQuery.substring(0, MAX_QUERY_LENGTH);
         }
-        long total = repository.countChunks(access, normalizedQuery);
         long offset = Math.multiplyExact((long) page, size);
-        List<EnterpriseChunkView> items = repository.listChunks(access, normalizedQuery, size, offset);
+        EnterpriseDocumentRepository.ChunkSearchPage result = repository.pageChunks(
+                access, normalizedQuery, size, offset);
+        long total = result.total();
+        List<EnterpriseChunkView> items = result.items();
+        // count(*) OVER() has no row when a caller requests a page past the
+        // end. Preserve a correct pagination total with a fallback that only
+        // runs for that exceptional request, not for every normal page load.
+        if (items.isEmpty() && page > 0) {
+            total = repository.countChunks(access, normalizedQuery);
+        }
         int totalPages = total == 0 ? 0 : (int) Math.ceil(total / (double) size);
         return new ChunkPage(items, page, size, total, totalPages, normalizedQuery);
     }

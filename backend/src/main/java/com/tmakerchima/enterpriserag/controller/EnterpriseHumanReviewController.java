@@ -1,7 +1,7 @@
 package com.tmakerchima.enterpriserag.controller;
 
 import com.tmakerchima.enterpriserag.service.EnterpriseHumanReviewService;
-import org.springframework.beans.factory.annotation.Value;
+import com.tmakerchima.enterpriserag.service.EnterpriseReviewJudgeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,12 +23,12 @@ import java.util.UUID;
 public class EnterpriseHumanReviewController {
 
     private final EnterpriseHumanReviewService reviewService;
-    private final String adminToken;
+    private final EnterpriseReviewJudgeService judgeService;
 
     public EnterpriseHumanReviewController(EnterpriseHumanReviewService reviewService,
-                                           @Value("${enterprise.rag.admin-token:}") String adminToken) {
+                                           EnterpriseReviewJudgeService judgeService) {
         this.reviewService = reviewService;
-        this.adminToken = adminToken == null ? "" : adminToken;
+        this.judgeService = judgeService;
     }
 
     public record SubmitReviewRequest(String requestId, String question, String answer,
@@ -50,10 +49,8 @@ public class EnterpriseHumanReviewController {
 
     @GetMapping
     public ResponseEntity<?> list(
-            @RequestHeader(name = "X-Enterprise-Admin-Token", required = false) String token,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "100") int limit) {
-        if (!authorized(token)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
         try {
             return ResponseEntity.ok(Map.of("items", reviewService.list(status, limit)));
         } catch (IllegalArgumentException error) {
@@ -63,10 +60,8 @@ public class EnterpriseHumanReviewController {
 
     @PatchMapping("/{reviewId}")
     public ResponseEntity<?> complete(
-            @RequestHeader(name = "X-Enterprise-Admin-Token", required = false) String token,
             @PathVariable UUID reviewId,
             @RequestBody CompleteReviewRequest request) {
-        if (!authorized(token)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Unauthorized"));
         if (request == null) return ResponseEntity.badRequest().body(Map.of("error", "request must not be null"));
         try {
             return ResponseEntity.ok(reviewService.review(reviewId, request.verdict(), request.comment()));
@@ -77,7 +72,18 @@ public class EnterpriseHumanReviewController {
         }
     }
 
-    private boolean authorized(String token) {
-        return !adminToken.isBlank() && token != null && adminToken.equals(token);
+    @PostMapping("/{reviewId}/judge")
+    public ResponseEntity<?> judge(@PathVariable UUID reviewId) {
+        try {
+            EnterpriseHumanReviewService.ReviewItem item = reviewService.get(reviewId);
+            return ResponseEntity.ok(reviewService.saveJudge(reviewId, judgeService.judge(item)));
+        } catch (NoSuchElementException error) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", error.getMessage()));
+        } catch (IllegalArgumentException error) {
+            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
+        } catch (RuntimeException error) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of("error", "LLM judge request failed"));
+        }
     }
 }

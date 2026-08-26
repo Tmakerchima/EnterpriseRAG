@@ -16,7 +16,7 @@ Accept: application/json
 
 - `role`：演示角色，支持 `public`、`engineering`、`finance`、`hr`、`admin`；
 - `tenantId`：演示 tenant，默认 `default`；
-- `q`：可选，搜索标题、external ID 和正文，最长使用前 200 字；
+- `q`：可选，最长使用前 200 字；正文/检索上下文走 PostgreSQL GIN 全文索引，标题和 external ID 补充匹配；
 - `page`：从 0 开始，最大 10,000；
 - `size`：默认 12，最大 50。
 
@@ -66,3 +66,11 @@ Accept: application/json
 - 只返回原始可引用 `content`，不返回 embedding、`contextual_prefix` 或 `index_content`；
 - API 是只读的；
 - 当前请求参数是演示身份。生产环境必须从已验证的 SSO/OIDC claims 生成访问上下文。
+
+## 查询与切片逻辑
+
+- 导入器先按 Markdown 标题、段落和 fenced code block 形成语义块，再按 `cl100k_base` token 合并/拆分；默认上限 700 tokens，同一章节相邻切片最多重叠 80 tokens。
+- `content` 是可引用原文；`contextual_prefix + content` 构成 `index_content`，后者只用于 Embedding 和全文检索，不能作为引用证据展示。
+- 列表查询先锁定唯一 ACTIVE corpus，再在 SQL 中执行 tenant / department / access level 过滤。
+- 空查询按文档标题、切片序号分页；关键词查询使用 `search_vector @@ websearch_to_tsquery` 和 GIN 索引，标题或 external ID 命中具有更高优先级。
+- 正常分页使用 `count(*) OVER()` 一次返回页面和总数，避免旧实现为 COUNT 与页面各扫描一次、产生两次远程数据库往返。

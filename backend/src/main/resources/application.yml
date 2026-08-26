@@ -76,6 +76,8 @@ enterprise:
       mode: ${ENTERPRISE_RAG_RERANKER_MODE:HEURISTIC}
       max-candidates: ${ENTERPRISE_RAG_RERANKER_MAX_CANDIDATES:30}
       max-chars-per-candidate: ${ENTERPRISE_RAG_RERANKER_MAX_CHARS:1600}
+    review-judge:
+      model: ${ENTERPRISE_RAG_REVIEW_JUDGE_MODEL:${AI_CHAT_MODEL:local-chat-model}}
     admin-token: ${ENTERPRISE_RAG_ADMIN_TOKEN:}
   feedback:
     enabled: ${ENTERPRISE_RAG_FEEDBACK_ENABLED:true}

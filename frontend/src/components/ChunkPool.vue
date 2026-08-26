@@ -42,6 +42,7 @@ const result = ref<ChunkPage | null>(null)
 const loading = ref(false)
 const error = ref('')
 const expanded = ref<string | null>(null)
+const durationMs = ref<number | null>(null)
 let requestSequence = 0
 
 const copy = computed(() => props.locale === 'zh' ? {
@@ -49,6 +50,11 @@ const copy = computed(() => props.locale === 'zh' ? {
   title: '看看知识是怎么被切开的',
   lede: '切片是送给检索器和大模型的一小段原文。这里展示当前角色真正有权限看到的 ACTIVE 语料；向量、检索增强前缀等内部字段不会暴露。',
   flow: '原始文档 → 切片 → 向量/关键词检索 → 选中切片 → 生成带证据的回答',
+  chunkLogicTitle: '切片怎么生成',
+  chunkLogic: '导入器先按 Markdown 标题、段落和代码块保留结构，再用 cl100k_base 计数；默认每片最多 700 tokens，同一章节相邻片最多重叠 80 tokens。可引用原文与仅用于检索的上下文前缀分开保存。',
+  queryLogicTitle: '这里怎么查询',
+  queryLogic: '先锁定 ACTIVE 语料并执行 tenant / 角色 ACL。空搜索直接分页；关键词搜索走 PostgreSQL GIN 全文索引，同时匹配标题与文档 ID，再按相关度排序。详情始终返回原始可引用文本。',
+  elapsed: '本次端到端查询',
   search: '按标题、文档 ID 或正文搜索',
   searchAction: '搜索切片',
   clear: '清空',
@@ -71,6 +77,11 @@ const copy = computed(() => props.locale === 'zh' ? {
   title: 'See how documents become chunks',
   lede: 'A chunk is a small piece of original text sent to retrieval and the model. This pool shows only ACTIVE-corpus chunks visible to the selected demo role.',
   flow: 'Document → chunks → vector/keyword retrieval → selected chunks → grounded answer',
+  chunkLogicTitle: 'How chunks are created',
+  chunkLogic: 'The importer preserves Markdown headings, paragraphs, and fenced code blocks, then counts with cl100k_base. Defaults are 700 tokens per chunk and up to 80 overlapping tokens within the same section. Citable text is stored separately from retrieval-only context.',
+  queryLogicTitle: 'How this page searches',
+  queryLogic: 'The API selects the ACTIVE corpus and applies tenant/role ACLs first. Empty searches page directly; keyword searches use PostgreSQL GIN full-text search plus title/document ID matching, then rank results. Details always return original citable text.',
+  elapsed: 'end-to-end query',
   search: 'Search title, document ID, or content',
   searchAction: 'Search chunks',
   clear: 'Clear',
@@ -101,6 +112,7 @@ async function load(page = 0) {
     return
   }
   loading.value = true
+  const started = performance.now()
   error.value = ''
   expanded.value = null
   try {
@@ -116,7 +128,10 @@ async function load(page = 0) {
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const payload = await response.json() as ChunkPage
-    if (requestId === requestSequence) result.value = payload
+    if (requestId === requestSequence) {
+      result.value = payload
+      durationMs.value = Math.round(performance.now() - started)
+    }
   } catch {
     if (requestId === requestSequence) error.value = copy.value.loadFailed
   } finally {
@@ -161,6 +176,11 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 
     <div class="chunk-flow" aria-label="RAG flow">{{ copy.flow }}</div>
 
+    <div class="logic-grid">
+      <article class="card"><strong>{{ copy.chunkLogicTitle }}</strong><p>{{ copy.chunkLogic }}</p></article>
+      <article class="card"><strong>{{ copy.queryLogicTitle }}</strong><p>{{ copy.queryLogic }}</p></article>
+    </div>
+
     <form class="chunk-search card" @submit.prevent="load(0)">
       <label for="chunk-search">{{ copy.search }}</label>
       <div>
@@ -177,6 +197,7 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
         <strong>{{ result.total.toLocaleString() }}</strong>
         <span>{{ copy.count }}</span>
         <small v-if="result.query">“{{ result.query }}”</small>
+        <small class="query-duration">{{ copy.elapsed }} · {{ durationMs ?? '—' }} ms</small>
       </div>
 
       <div v-if="result.items.length" class="chunk-list">
@@ -217,16 +238,17 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 .chunk-heading { align-items: end; display: flex; gap: 32px; justify-content: space-between; margin-bottom: 8px; }
 .chunk-heading h2 { font-size: clamp(34px, 5vw, 56px); }
 .chunk-heading p:not(.eyebrow) { color: #686158; font-family: var(--font-editorial); line-height: 1.7; margin: 18px 0 0; max-width: 720px; }
-.role-badge { background: #282521; color: #fffaf4; min-width: 150px; padding: 14px 16px; }
+.role-badge { background: #302c28; border-radius: 14px; color: #fffaf4; min-width: 150px; padding: 14px 16px; }
 .role-badge span { display: block; }
 .role-badge span { color: #cfc6ba; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .role-badge select { background: transparent; border: 0; color: #fffaf4; font: 500 15px/1.3 var(--font-editorial); margin-top: 6px; padding: 0; width: 100%; }
 .role-badge option { color: #282521; }
-.chunk-flow { background: #edf5ef; border: 1px solid #a9c7b2; color: #35634a; font: 11px/1.5 ui-monospace, monospace; padding: 14px 17px; }
+.chunk-flow { background: #edf5ef; border: 1px solid #a9c7b2; border-radius: 12px; color: #35634a; font: 11px/1.5 ui-monospace, monospace; padding: 14px 17px; }
+.logic-grid { display:grid; gap:10px; grid-template-columns:repeat(2,minmax(0,1fr)); }.logic-grid article { padding:18px 20px; }.logic-grid strong { color:#49423b; font-size:12px; }.logic-grid p { color:#686158; font-size:12px; line-height:1.7; margin:8px 0 0; }
 .chunk-search label { color: #817a70; display: block; font-size: 10px; font-weight: 700; letter-spacing: .07em; margin-bottom: 9px; text-transform: uppercase; }
 .chunk-search > div { display: flex; gap: 8px; }
-.chunk-search input { background: #fffdf9; border: 1px solid #cfc6ba; color: #282521; flex: 1; min-width: 0; padding: 12px 13px; }
-.chunk-search button, .chunk-pagination button { background: #282521; border: 1px solid #282521; color: #fffaf4; font-size: 10px; font-weight: 700; padding: 0 16px; }
+.chunk-search input { background: #fffdf9; border: 1px solid #cfc6ba; border-radius: 10px; color: #282521; flex: 1; min-width: 0; padding: 12px 13px; }
+.chunk-search button, .chunk-pagination button { background: #302c28; border: 1px solid #302c28; border-radius: 10px; color: #fffaf4; font-size: 10px; font-weight: 700; padding: 0 16px; }
 .chunk-search .clear-button { background: transparent; color: #686158; }
 .chunk-search button:disabled, .chunk-pagination button:disabled { cursor: not-allowed; opacity: .4; }
 .chunk-message { color: #817a70; min-height: 110px; padding-top: 44px; text-align: center; }
@@ -234,6 +256,7 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 .chunk-result-heading strong { font: 500 28px/1 var(--font-editorial); }
 .chunk-result-heading span, .chunk-result-heading small { color: #817a70; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
 .chunk-result-heading small { margin-left: auto; text-transform: none; }
+.chunk-result-heading .query-duration { margin-left:8px; }
 .chunk-list { display: grid; gap: 10px; }
 .chunk-item { padding: 0; }
 .chunk-toggle { align-items: center; background: transparent; border: 0; color: #39342f; display: grid; gap: 14px; grid-template-columns: 46px 1fr auto; padding: 18px 20px 12px; text-align: left; width: 100%; }
@@ -241,7 +264,7 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 .chunk-identity strong, .chunk-identity small { display: block; }
 .chunk-identity strong { font-size: 13px; }
 .chunk-identity small { color: #91887c; font: 9px/1.4 ui-monospace, monospace; margin-top: 4px; overflow-wrap: anywhere; }
-.chunk-state { background: #e9f3ed; border: 1px solid #9ec2ac; color: #3b7658; font-size: 9px; font-weight: 700; padding: 5px 7px; text-transform: uppercase; }
+.chunk-state { background: #e9f3ed; border: 1px solid #9ec2ac; border-radius: 8px; color: #3b7658; font-size: 9px; font-weight: 700; padding: 5px 7px; text-transform: uppercase; }
 .chunk-preview { color: #686158; display: -webkit-box; font-family: var(--font-editorial); font-size: 13px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.65; margin: 0; overflow: hidden; padding: 0 20px 18px 80px; white-space: pre-wrap; }
 .chunk-preview.expanded { display: block; overflow: visible; }
 .chunk-details { background: #f1ece4; border-top: 1px solid #e3ddd4; padding: 14px 20px; }
@@ -256,6 +279,7 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 
 @media (max-width: 720px) {
   .chunk-heading { align-items: flex-start; flex-direction: column; }
+  .logic-grid { grid-template-columns:1fr; }
   .role-badge { min-width: 0; width: 100%; }
   .chunk-search > div { display: grid; grid-template-columns: 1fr 1fr; }
   .chunk-search input { grid-column: 1 / -1; }

@@ -2,11 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import ChunkPool from './components/ChunkPool.vue'
 import EvaluationDashboard from './components/EvaluationDashboard.vue'
+import HumanReviewDashboard from './components/HumanReviewDashboard.vue'
 
 type Locale = 'zh' | 'en'
 type Role = 'public' | 'engineering' | 'finance' | 'hr' | 'admin'
 type Strategy = 'HYBRID' | 'VECTOR' | 'KEYWORD' | 'HYBRID_RERANK'
-type View = 'query' | 'chunks' | 'evaluation'
+type View = 'query' | 'chunks' | 'evaluation' | 'review'
 
 interface Source {
   source_type: string
@@ -65,13 +66,17 @@ interface Health {
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const locale = ref<Locale>('zh')
-const initialView: View = window.location.hash === '#evaluation'
+const initialView: View = window.location.hash === '#review'
+  ? 'review'
+  : window.location.hash === '#evaluation'
   ? 'evaluation'
   : window.location.hash === '#chunks' ? 'chunks' : 'query'
 const activeView = ref<View>(initialView)
 const question = ref('What are the default limits for multipart uploads?')
 const role = ref<Role>('engineering')
-const strategy = ref<Strategy>('HYBRID')
+// HYBRID is the only strategy backed by the currently published evaluation.
+// Keep experimental strategies out of the end-user query console.
+const bestStrategy: Strategy = 'HYBRID'
 const answer = ref('')
 const sources = ref<Source[]>([])
 const metrics = ref<Metrics | null>(null)
@@ -97,6 +102,7 @@ const copy = {
     queryView: '问答',
     chunksView: '切片池',
     evaluationView: '评测',
+    reviewView: '人工审核',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: '让每一个答案，\n都有证据。',
     lede: '面向企业内部知识的可审计 RAG 工作台。回答、来源、权限上下文、阶段耗时和反馈通过同一个 request_id 串联。',
@@ -149,7 +155,7 @@ const copy = {
     helpful: '有帮助',
     needsReview: '送人工审核',
     feedbackThanks: '谢谢，反馈已记录。',
-    reviewQueued: '问题、回答与引用片段已进入评测页的人工审核队列。',
+    reviewQueued: '问题、回答与引用片段已进入独立的人工审核页。',
     reviewQueueFailed: '反馈已记录，但人工审核入队失败，请检查 V6 数据库迁移。',
     footer: 'EnterpriseRAG · 企业知识库检索与评测工作台',
     api: 'API',
@@ -180,6 +186,7 @@ const copy = {
     queryView: 'Query',
     chunksView: 'Chunks',
     evaluationView: 'Evaluation',
+    reviewView: 'Human review',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: 'Every answer\nwith evidence.',
     lede: 'An auditable EnterpriseRAG workspace. Answers, sources, authorization context, stage timings and feedback share one request_id.',
@@ -232,7 +239,7 @@ const copy = {
     helpful: 'Helpful',
     needsReview: 'Send to human review',
     feedbackThanks: 'Thanks — feedback was recorded.',
-    reviewQueued: 'The question, answer, and cited excerpts are now in the Evaluation human-review queue.',
+    reviewQueued: 'The question, answer, and cited excerpts are now in the separate Human review page.',
     reviewQueueFailed: 'Feedback was recorded, but review queueing failed. Check the V6 database migration.',
     footer: 'EnterpriseRAG · enterprise retrieval and evaluation workspace',
     api: 'API',
@@ -389,7 +396,7 @@ async function ask(questionOverride?: string) {
     const response = await fetch(`${apiBase}/api/enterprise/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-      body: JSON.stringify({ question: trimmed, role: role.value, strategy: strategy.value }),
+      body: JSON.stringify({ question: trimmed, role: role.value, strategy: bestStrategy }),
       signal: controller.signal,
     })
     if (!response.ok) {
@@ -501,7 +508,7 @@ async function queueForHumanReview() {
         question: answeredQuestion.value,
         answer: answer.value,
         accessRole: role.value,
-        strategy: strategy.value,
+        strategy: bestStrategy,
         sources: sources.value.map((item) => ({
           rank: item.rank,
           title: item.title,
@@ -537,6 +544,7 @@ async function queueForHumanReview() {
           <button type="button" :class="{ active: activeView === 'query' }" @click="switchView('query')">{{ t('queryView') }}</button>
           <button type="button" :class="{ active: activeView === 'chunks' }" @click="switchView('chunks')">{{ t('chunksView') }}</button>
           <button type="button" :class="{ active: activeView === 'evaluation' }" @click="switchView('evaluation')">{{ t('evaluationView') }}</button>
+          <button type="button" :class="{ active: activeView === 'review' }" @click="switchView('review')">{{ t('reviewView') }}</button>
         </nav>
         <span class="status" :class="statusTone"><i /> {{ health?.status ? `${health.status} · ${statusLabel}` : statusLabel }}</span>
         <label class="language-control">
@@ -599,15 +607,6 @@ async function queueForHumanReview() {
                 <option v-for="item in roles" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
-              </select>
-            </label>
-            <label>
-              {{ t('strategy') }}
-              <select v-model="strategy" :disabled="loading">
-                <option value="HYBRID">{{ t('hybrid') }}</option>
-                <option value="VECTOR">{{ t('vector') }}</option>
-                <option value="KEYWORD">{{ t('keyword') }}</option>
-                <option value="HYBRID_RERANK">{{ t('rerank') }}</option>
               </select>
             </label>
             <button type="submit" :disabled="loading || !question.trim() || !queryReady">
@@ -699,7 +698,6 @@ async function queueForHumanReview() {
           <div v-if="metrics" class="metric-footer">
             <span>{{ metrics.candidate_count }} {{ t('candidates') }}</span>
             <span>{{ metrics.final_context_count }} {{ t('contextChunks') }}</span>
-            <span>{{ metrics.strategy }}</span>
             <span v-if="metrics.fallback">fallback: {{ metrics.fallback }}</span>
           </div>
         </div>
@@ -707,7 +705,8 @@ async function queueForHumanReview() {
       </template>
 
       <ChunkPool v-else-if="activeView === 'chunks'" v-model:role="role" :api-base="apiBase" :locale="locale" :ready="queryReady" />
-      <EvaluationDashboard v-else :locale="locale" :api-base="apiBase" />
+      <EvaluationDashboard v-else-if="activeView === 'evaluation'" :locale="locale" :api-base="apiBase" />
+      <HumanReviewDashboard v-else :locale="locale" :api-base="apiBase" />
     </main>
 
     <footer>
