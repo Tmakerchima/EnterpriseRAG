@@ -15,6 +15,14 @@ VITE_API_BASE_URL=https://<shared-backend>
 VITE_EVALUATION_REPORT_URL=/evaluation/latest.json
 ```
 
+The backend already allows the production frontend and `http://localhost:5173`.
+If you add another frontend domain, append it to the Railway variable below
+using commas (do not remove the existing entries):
+
+```text
+ENTERPRISE_RAG_CORS_ORIGINS=http://localhost:5173,https://enterprise-rag-frontend-seven.vercel.app,https://<another-frontend>
+```
+
 In Vercel, open **Project → Settings → Git**, disconnect the legacy repository, connect `Tmakerchima/EnterpriseRAG`, and select `main` as the production branch. Then open **Settings → Build and Deployment** and change Root Directory from the legacy `enterprise-rag-frontend` path to `frontend`. Relinking the existing Vercel project keeps its current domain; creating a separate Vercel project does not.
 
 ## Publishing an evaluation scorecard
