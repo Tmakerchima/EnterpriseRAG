@@ -3,6 +3,10 @@ server:
   shutdown: graceful
 
 spring:
+  config:
+    # Local convenience only. Real deployments should inject environment
+    # variables from their platform/secret manager instead of shipping a file.
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
   application:
     name: enterprise-rag
   lifecycle:
@@ -10,7 +14,7 @@ spring:
   datasource:
     url: ${ENTERPRISE_DB_URL:jdbc:postgresql://localhost:5432/enterprise_rag}
     username: ${ENTERPRISE_DB_USERNAME:postgres}
-    password: ${ENTERPRISE_DB_PASSWORD:local_dev_only}
+    password: ${ENTERPRISE_DB_PASSWORD:postgres}
     hikari:
       maximum-pool-size: ${ENTERPRISE_DB_MAXIMUM_POOL_SIZE:10}
       minimum-idle: ${ENTERPRISE_DB_MINIMUM_IDLE:1}

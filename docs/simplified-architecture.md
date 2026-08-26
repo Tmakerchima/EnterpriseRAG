@@ -15,7 +15,7 @@ Python worker (canonical production ingestion)
                                                         explicit activate / rollback
                                                                     |
                                                                     v
-User request -> validated tenant + ACL context
+User request -> tenant + ACL context
     |
     v
 ACL-aware retrieval in SQL
@@ -41,7 +41,18 @@ versioned SSE: sources -> token -> metrics -> done
     |
     +--> redacted trace / telemetry / feedback queue
     +--> deterministic evaluation -> triage -> manual review -> regression case
+
+User opens source / chunk pool
+    |
+    v
+GET /api/enterprise/chunks[/{chunkId}]
+    -> same ACTIVE corpus + tenant/ACL SQL
+    -> original citable content only (never embedding/contextual prefix)
 ```
+
+The checked-in UI is an ACL demonstration: `role` and `tenantId` arrive in the
+request. Production must replace that boundary with verified SSO/OIDC claims
+before creating `EnterpriseAccessContext`; browser input is not an identity.
 
 ## Runtime boundaries
 

@@ -45,4 +45,22 @@ class EnterpriseChatServiceTest {
         verify(retrievalService).retrieve(any(), any(), any());
         verifyNoInteractions(chatClient);
     }
+
+    @Test
+    void oversizedQuestionIsRejectedBeforeRetrievalOrModelCalls() {
+        ChatClient chatClient = mock(ChatClient.class);
+        EnterpriseRetrievalService retrievalService = mock(EnterpriseRetrievalService.class);
+        EnterpriseInteractionService interactionService = mock(EnterpriseInteractionService.class);
+        EnterpriseChatService service = new EnterpriseChatService(chatClient, retrievalService,
+                new ObjectMapper(), "HYBRID", true,
+                new EnterpriseTelemetry(new SimpleMeterRegistry(), ObservationRegistry.create()),
+                interactionService);
+
+        String stream = String.join("", service.streamAnswer(
+                new ChatRequest("x".repeat(4_001), "public", "tenant-a", "HYBRID"),
+                "request-123", "trace-123").collectList().block());
+
+        assertThat(stream).contains("question must not exceed 4000 characters");
+        verifyNoInteractions(retrievalService, chatClient, interactionService);
+    }
 }

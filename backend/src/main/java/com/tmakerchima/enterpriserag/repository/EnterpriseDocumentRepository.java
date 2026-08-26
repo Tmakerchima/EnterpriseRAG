@@ -4,14 +4,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tmakerchima.enterpriserag.model.EnterpriseAccessContext;
+import com.tmakerchima.enterpriserag.model.EnterpriseChunkView;
 import com.tmakerchima.enterpriserag.model.EnterpriseSearchHit;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Enterprise 文档与 Chunk 的 PostgreSQL 持久化层。
@@ -90,6 +92,70 @@ public class EnterpriseDocumentRepository {
     }
 
     /**
+     * Lists original, citable chunks from the ACTIVE corpus. This inspection
+     * query uses the exact same tenant/ACL boundary as online retrieval.
+     */
+    public List<EnterpriseChunkView> listChunks(EnterpriseAccessContext access, String query,
+                                                 int limit, long offset) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        String pattern = "%" + normalizedQuery + "%";
+        String sql = """
+                SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
+                       c.content, c.chunk_index, c.token_count, c.embedding IS NOT NULL AS embedded,
+                       d.department, d.access_level, c.metadata,
+                       (SELECT dataset_version FROM enterprise_corpora v
+                        WHERE v.corpus_id = c.corpus_id) AS corpus_version
+                FROM enterprise_chunks c
+                JOIN enterprise_documents d ON d.document_id = c.document_id
+                WHERE d.deleted_at IS NULL
+                  AND d.corpus_id = (SELECT corpus_id FROM enterprise_corpora
+                                     WHERE state = 'ACTIVE' LIMIT 1)
+                  AND (? = '' OR d.title ILIKE ? OR d.external_id ILIKE ? OR c.content ILIKE ?)
+                """ + ACL_FILTER + """
+                ORDER BY d.title, c.chunk_index, c.chunk_id
+                LIMIT ? OFFSET ?
+                """;
+        return jdbcTemplate.query(sql, this::mapChunk, normalizedQuery, pattern, pattern, pattern,
+                access.role(), access.department(), access.tenantId(), limit, offset);
+    }
+
+    public long countChunks(EnterpriseAccessContext access, String query) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        String pattern = "%" + normalizedQuery + "%";
+        String sql = """
+                SELECT count(*)
+                FROM enterprise_chunks c
+                JOIN enterprise_documents d ON d.document_id = c.document_id
+                WHERE d.deleted_at IS NULL
+                  AND d.corpus_id = (SELECT corpus_id FROM enterprise_corpora
+                                     WHERE state = 'ACTIVE' LIMIT 1)
+                  AND (? = '' OR d.title ILIKE ? OR d.external_id ILIKE ? OR c.content ILIKE ?)
+                """ + ACL_FILTER;
+        Long value = jdbcTemplate.queryForObject(sql, Long.class, normalizedQuery, pattern, pattern, pattern,
+                access.role(), access.department(), access.tenantId());
+        return value == null ? 0 : value;
+    }
+
+    /** Returns one full source chunk only when the caller may see it. */
+    public Optional<EnterpriseChunkView> findChunk(String chunkId, EnterpriseAccessContext access) {
+        String sql = """
+                SELECT c.chunk_id, c.document_id, d.external_id, d.source, d.source_type, d.title,
+                       c.content, c.chunk_index, c.token_count, c.embedding IS NOT NULL AS embedded,
+                       d.department, d.access_level, c.metadata,
+                       (SELECT dataset_version FROM enterprise_corpora v
+                        WHERE v.corpus_id = c.corpus_id) AS corpus_version
+                FROM enterprise_chunks c
+                JOIN enterprise_documents d ON d.document_id = c.document_id
+                WHERE d.deleted_at IS NULL
+                  AND d.corpus_id = (SELECT corpus_id FROM enterprise_corpora
+                                     WHERE state = 'ACTIVE' LIMIT 1)
+                  AND c.chunk_id = ?
+                """ + ACL_FILTER;
+        return jdbcTemplate.query(sql, this::mapChunk, chunkId, access.role(), access.department(),
+                access.tenantId()).stream().findFirst();
+    }
+
+    /**
      * 统一把 Supabase/ParadeDB 两个 lexical backend 的行映射成同一份安全结果。
      * BM25 数据源只负责执行搜索，原始 content 和 ACL 元数据仍使用同一映射规则。
      */
@@ -114,6 +180,24 @@ public class EnterpriseDocumentRepository {
                 rs.getDouble("score"),
                 rowNum + 1,
                 Collections.unmodifiableMap(metadata));
+    }
+
+    private EnterpriseChunkView mapChunk(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        return new EnterpriseChunkView(
+                rs.getString("chunk_id"),
+                rs.getString("document_id"),
+                rs.getString("external_id"),
+                rs.getString("source"),
+                rs.getString("source_type"),
+                rs.getString("title"),
+                rs.getString("content"),
+                rs.getInt("chunk_index"),
+                rs.getInt("token_count"),
+                rs.getBoolean("embedded"),
+                rs.getString("department"),
+                rs.getString("access_level"),
+                rs.getString("corpus_version"),
+                Collections.unmodifiableMap(new LinkedHashMap<>(readMetadata(rs.getString("metadata")))));
     }
 
     private Map<String, Object> readMetadata(String value) {

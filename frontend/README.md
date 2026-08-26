@@ -9,7 +9,17 @@ npm run build
 
 The stream parser accepts the versioned `sources`, `token`, `metrics`, `error`, and `done` events and keeps compatibility with the legacy marker payloads. Feedback is additive: failure to submit it never changes the answer path.
 
-The Evaluation view reads `/evaluation/latest.json` (or `VITE_EVALUATION_REPORT_URL`) and displays case success, confidence intervals, retrieval/generation scores, security gates, latency and case-level failures. It also accepts a local evaluator `summary.json`; the file is parsed in the browser and is not uploaded.
+The Chunk pool calls the ACL-filtered `/api/enterprise/chunks` endpoints. A
+source click fetches the complete original citable chunk instead of stopping at
+the 180-character SSE preview. Changing the demo role clears previously shown
+evidence.
+
+The Evaluation view reads `/evaluation/latest.json` (or
+`VITE_EVALUATION_REPORT_URL`). Its default beginner view answers four plain
+questions about retrieval, answer reliability, permission leakage and P95
+latency. Professional metrics and case details are available in collapsed
+sections. It also accepts a local evaluator `summary.json`; the file is parsed
+in the browser and is not uploaded.
 
 Publish a measured run from the repository root with:
 

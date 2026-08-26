@@ -7,8 +7,9 @@ import java.util.Locale;
  *
  * <p>The tenant is never optional. An administrator can have broad ACL access
  * inside a tenant, but still cannot turn a missing tenant into a cross-tenant
- * search. This keeps the demo boundary aligned with a production data-access
- * rule: authorization is carried by the server-side context, not by a prompt.</p>
+ * search. The checked-in UI builds this context from demo request fields so
+ * people can explore ACL behavior. Production must instead build it from
+ * verified identity claims; authorization must never come from a prompt.</p>
  */
 public record EnterpriseAccessContext(String role, String tenantId, String department) {
 
@@ -18,6 +19,7 @@ public record EnterpriseAccessContext(String role, String tenantId, String depar
         department = normalizeNullable(department);
     }
 
+    /** Builds the request-driven demo context. Replace this boundary with verified claims in production. */
     public static EnterpriseAccessContext from(String requestedRole, String requestedTenantId) {
         String role = normalizeRole(requestedRole);
         String department = switch (role) {

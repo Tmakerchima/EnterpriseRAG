@@ -30,6 +30,7 @@ import java.util.UUID;
 public class EnterpriseChatService {
 
     private static final Logger log = LoggerFactory.getLogger(EnterpriseChatService.class);
+    private static final int MAX_QUESTION_LENGTH = 4_000;
     private static final String SYSTEM_PROMPT = """
             You are Enterprise Knowledge Assistant. Answer only from the retrieved enterprise context.
             If the context does not contain enough evidence, say that there is insufficient evidence and
@@ -85,8 +86,12 @@ public class EnterpriseChatService {
             // 在调用任何外部模型前拒绝空问题，避免无意义的向量请求和生成请求。
             String question = request.question() == null ? "" : request.question().trim();
             if (question.isBlank()) return Flux.just(errorFrame(requestId, "question must not be blank"));
+            if (question.length() > MAX_QUESTION_LENGTH) {
+                return Flux.just(errorFrame(requestId, "question must not exceed 4000 characters"));
+            }
 
-            // 将前端角色转换为服务端权限上下文；后续每一路检索都必须复用同一 access。
+            // 演示环境允许前端选择角色；生产环境必须从已验证的 SSO claims 构造 access。
+            // 构造后每一路检索都必须复用同一 access，不能在 prompt 中重新判断权限。
             EnterpriseAccessContext access = EnterpriseAccessContext.from(
                     request.role(), request.tenantId());
 

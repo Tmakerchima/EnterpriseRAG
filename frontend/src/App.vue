@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import ChunkPool from './components/ChunkPool.vue'
 import EvaluationDashboard from './components/EvaluationDashboard.vue'
 
 type Locale = 'zh' | 'en'
 type Role = 'public' | 'engineering' | 'finance' | 'hr' | 'admin'
 type Strategy = 'HYBRID' | 'VECTOR' | 'KEYWORD' | 'HYBRID_RERANK'
-type View = 'query' | 'evaluation'
+type View = 'query' | 'chunks' | 'evaluation'
 
 interface Source {
   source_type: string
@@ -16,6 +17,15 @@ interface Source {
   chunk: string
   rank: number
   score: number
+}
+
+interface ChunkDetail {
+  chunkId: string
+  content: string
+  tokenCount: number
+  corpusVersion: string
+  accessLevel: string
+  department: string
 }
 
 interface Metrics {
@@ -55,7 +65,10 @@ interface Health {
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const locale = ref<Locale>('zh')
-const activeView = ref<View>(window.location.hash === '#evaluation' ? 'evaluation' : 'query')
+const initialView: View = window.location.hash === '#evaluation'
+  ? 'evaluation'
+  : window.location.hash === '#chunks' ? 'chunks' : 'query'
+const activeView = ref<View>(initialView)
 const question = ref('What are the default limits for multipart uploads?')
 const role = ref<Role>('engineering')
 const strategy = ref<Strategy>('HYBRID')
@@ -65,6 +78,10 @@ const metrics = ref<Metrics | null>(null)
 const error = ref('')
 const loading = ref(false)
 const expandedSource = ref<string | null>(null)
+const chunkDetails = ref<Record<string, ChunkDetail>>({})
+const chunkDetailLoading = ref<string | null>(null)
+const chunkDetailError = ref<Record<string, string>>({})
+let accessVersion = 0
 const health = ref<Health | null>(null)
 const healthLoading = ref(false)
 const feedbackSent = ref(false)
@@ -74,6 +91,7 @@ const copy = {
     brand: '企业知识库',
     language: '语言',
     queryView: '问答',
+    chunksView: '切片池',
     evaluationView: '评测',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: '让每一个答案，\n都有证据。',
@@ -114,6 +132,10 @@ const copy = {
     evidenceKicker: 'EVIDENCE',
     evidenceTitle: '检索来源',
     evidenceEmpty: '运行一次查询，查看文档级证据。',
+    fullChunk: '完整引用切片',
+    loadingChunk: '正在读取完整切片…',
+    chunkLoadFailed: '完整切片读取失败，当前显示的是 180 字摘要。',
+    chunkMeta: '切片详情',
     observabilityKicker: 'OBSERVABILITY',
     observabilityTitle: '链路指标',
     metricsEmpty: '回答完成后显示检索和模型耗时。',
@@ -146,6 +168,7 @@ const copy = {
     brand: 'Enterprise knowledge',
     language: 'Language',
     queryView: 'Query',
+    chunksView: 'Chunks',
     evaluationView: 'Evaluation',
     kicker: 'ENTERPRISE KNOWLEDGE / RAG',
     title: 'Every answer\nwith evidence.',
@@ -186,6 +209,10 @@ const copy = {
     evidenceKicker: 'EVIDENCE',
     evidenceTitle: 'Retrieved sources',
     evidenceEmpty: 'Run a query to inspect document-level evidence.',
+    fullChunk: 'Full cited chunk',
+    loadingChunk: 'Loading the full chunk…',
+    chunkLoadFailed: 'Unable to load the full chunk; showing the 180-character preview.',
+    chunkMeta: 'Chunk details',
     observabilityKicker: 'OBSERVABILITY',
     observabilityTitle: 'Pipeline metrics',
     metricsEmpty: 'Retrieval and model timings appear after the answer completes.',
@@ -254,8 +281,35 @@ const statusLabel = computed(() => t(statusKey.value as CopyKey))
 
 function switchView(view: View) {
   activeView.value = view
-  window.history.replaceState(null, '', view === 'evaluation' ? '#evaluation' : window.location.pathname)
+  const location = view === 'query' ? window.location.pathname : `#${view}`
+  window.history.replaceState(null, '', location)
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function toggleSource(source: Source) {
+  if (expandedSource.value === source.chunk_id) {
+    expandedSource.value = null
+    return
+  }
+  expandedSource.value = source.chunk_id
+  if (chunkDetails.value[source.chunk_id] || !apiBase) return
+
+  chunkDetailLoading.value = source.chunk_id
+  const requestedAccessVersion = accessVersion
+  delete chunkDetailError.value[source.chunk_id]
+  try {
+    const params = new URLSearchParams({ role: role.value, tenantId: 'default' })
+    const response = await fetch(`${apiBase}/api/enterprise/chunks/${encodeURIComponent(source.chunk_id)}?${params}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const payload = await response.json() as ChunkDetail
+    if (requestedAccessVersion === accessVersion) chunkDetails.value[source.chunk_id] = payload
+  } catch {
+    if (requestedAccessVersion === accessVersion) chunkDetailError.value[source.chunk_id] = t('chunkLoadFailed')
+  } finally {
+    if (requestedAccessVersion === accessVersion && chunkDetailLoading.value === source.chunk_id) chunkDetailLoading.value = null
+  }
 }
 
 async function refreshHealth() {
@@ -273,6 +327,19 @@ async function refreshHealth() {
 }
 
 onMounted(refreshHealth)
+
+watch(role, () => {
+  // Demo roles simulate different identities. Never keep evidence from the
+  // previous ACL context visible after the role changes.
+  accessVersion += 1
+  answer.value = ''
+  sources.value = []
+  metrics.value = null
+  expandedSource.value = null
+  chunkDetails.value = {}
+  chunkDetailError.value = {}
+  chunkDetailLoading.value = null
+})
 
 async function ask(questionOverride?: string) {
   if (questionOverride) question.value = questionOverride
@@ -414,9 +481,10 @@ async function sendFeedback(rating: 'positive' | 'negative') {
       <div class="topbar-actions">
         <nav class="view-switch" aria-label="Workspace view">
           <button type="button" :class="{ active: activeView === 'query' }" @click="switchView('query')">{{ t('queryView') }}</button>
+          <button type="button" :class="{ active: activeView === 'chunks' }" @click="switchView('chunks')">{{ t('chunksView') }}</button>
           <button type="button" :class="{ active: activeView === 'evaluation' }" @click="switchView('evaluation')">{{ t('evaluationView') }}</button>
         </nav>
-        <span class="status" :class="statusTone"><i /> {{ health?.status || t('statusUnavailable') }} · {{ statusLabel }}</span>
+        <span class="status" :class="statusTone"><i /> {{ health?.status ? `${health.status} · ${statusLabel}` : statusLabel }}</span>
         <label class="language-control">
           <span>{{ t('language') }}</span>
           <select v-model="locale" aria-label="Language">
@@ -538,12 +606,20 @@ async function sendFeedback(rating: 'positive' | 'negative') {
           </div>
           <div v-if="sources.length" class="source-list">
             <article v-for="source in sources" :key="source.chunk_id" class="source-item">
-              <button type="button" class="source-title" @click="expandedSource = expandedSource === source.chunk_id ? null : source.chunk_id">
+              <button type="button" class="source-title" @click="toggleSource(source)">
                 <span class="source-type">{{ source.source_type }}</span>
                 <strong>{{ source.title || source.document_id }}</strong>
                 <span class="source-rank">#{{ source.rank }} · {{ source.score.toFixed(3) }}</span>
               </button>
-              <p v-if="expandedSource === source.chunk_id">{{ source.chunk }}</p>
+              <div v-if="expandedSource === source.chunk_id" class="source-content">
+                <strong>{{ t('fullChunk') }}</strong>
+                <p v-if="chunkDetailLoading === source.chunk_id">{{ t('loadingChunk') }}</p>
+                <p v-else>{{ chunkDetails[source.chunk_id]?.content || source.chunk }}</p>
+                <small v-if="chunkDetailError[source.chunk_id]">{{ chunkDetailError[source.chunk_id] }}</small>
+                <small v-else-if="chunkDetails[source.chunk_id]">
+                  {{ t('chunkMeta') }} · {{ source.chunk_id }} · {{ chunkDetails[source.chunk_id].tokenCount }} tokens · {{ chunkDetails[source.chunk_id].corpusVersion }}
+                </small>
+              </div>
             </article>
           </div>
           <p v-else class="muted">{{ t('evidenceEmpty') }}</p>
@@ -575,6 +651,7 @@ async function sendFeedback(rating: 'positive' | 'negative') {
       </section>
       </template>
 
+      <ChunkPool v-else-if="activeView === 'chunks'" v-model:role="role" :api-base="apiBase" :locale="locale" :ready="queryReady" />
       <EvaluationDashboard v-else :locale="locale" />
     </main>
 
