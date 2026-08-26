@@ -1,4 +1,26 @@
-# Frontend deployment
+# Production deployment
+
+## Backend: Railway
+
+EnterpriseRAG has its own Railway project and must not share the `portfolio-rag`
+service:
+
+```text
+Railway project: EnterpriseRAG
+Service: enterprise-rag-backend
+GitHub repository: Tmakerchima/EnterpriseRAG
+Branch: main
+Root Directory: backend
+Dockerfile: /backend/Dockerfile
+Health check: /api/enterprise/health
+Service domain: enterprise-rag-backend-production.up.railway.app
+```
+
+Keep only EnterpriseRAG database, AI and CORS variables in this service. The
+`portfolio-rag` project keeps its own repository, variables and domains. A push
+to either repository must never deploy the other application.
+
+## Frontend: Vercel
 
 The production frontend is built from this repository:
 
@@ -11,7 +33,7 @@ Vercel project: the existing project that owns enterprise-rag-frontend-seven.ver
 The Vercel project's Root Directory must be `frontend`. Vercel then uses `frontend/vercel.json` and the standard Vite install/build/output defaults. Configure these project environment variables for Production and Preview:
 
 ```text
-VITE_API_BASE_URL=https://<shared-backend>
+VITE_API_BASE_URL=https://enterprise-rag-backend-production.up.railway.app
 VITE_EVALUATION_REPORT_URL=/evaluation/latest.json
 ```
 
