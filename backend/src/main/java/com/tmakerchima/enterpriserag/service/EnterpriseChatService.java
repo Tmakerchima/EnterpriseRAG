@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class EnterpriseChatService {
@@ -46,6 +47,7 @@ public class EnterpriseChatService {
     private final boolean enabled;
     private final EnterpriseTelemetry telemetry;
     private final EnterpriseInteractionService interactionService;
+    private final EnterpriseHumanReviewService humanReviewService;
 
     public EnterpriseChatService(ChatClient chatClient,
                                  EnterpriseRetrievalService retrievalService,
@@ -53,7 +55,8 @@ public class EnterpriseChatService {
                                  @Value("${enterprise.rag.strategy:HYBRID}") String defaultStrategy,
                                  @Value("${enterprise.rag.enabled:true}") boolean enabled,
                                  EnterpriseTelemetry telemetry,
-                                 EnterpriseInteractionService interactionService) {
+                                 EnterpriseInteractionService interactionService,
+                                 EnterpriseHumanReviewService humanReviewService) {
         this.chatClient = chatClient;
         this.retrievalService = retrievalService;
         this.objectMapper = objectMapper;
@@ -61,6 +64,7 @@ public class EnterpriseChatService {
         this.enabled = enabled;
         this.telemetry = telemetry;
         this.interactionService = interactionService;
+        this.humanReviewService = humanReviewService;
     }
 
     /**
@@ -108,25 +112,51 @@ public class EnterpriseChatService {
             // 来源帧先于答案发送，使前端可以在模型仍生成时展示可追溯证据。
             // groundedPrompt 只拼接最终可访问的原始 content，不把 contextual_prefix 当作引用证据。
             String groundedPrompt = groundedPrompt(question, access, retrieval.hits());
+            StringBuilder answerText = new StringBuilder();
+            AtomicBoolean answerFailed = new AtomicBoolean(false);
+            AtomicBoolean reviewQueued = new AtomicBoolean(false);
 
             // 没有授权证据时直接拒答，避免把“请依据空 context 回答”交给模型后仍产生幻觉。
+            String refusal = "Insufficient evidence in the authorized corpus to answer this question.";
             Flux<ServerSentEvent<String>> answer = retrieval.hits().isEmpty()
-                    ? Flux.just(tokenFrame(requestId, traceId,
-                            "Insufficient evidence in the authorized corpus to answer this question."))
+                    ? Flux.defer(() -> {
+                        answerText.append(refusal);
+                        return Flux.just(tokenFrame(requestId, traceId, refusal));
+                    })
                     // 有证据时才调用 ChatClient；模型只能看到已完成 ACL 与 context budget 的原文。
                     : chatClient.prompt()
                             .system(SYSTEM_PROMPT)
                             .user(groundedPrompt)
                             .stream()
                             .content()
-                            .map(token -> SseEvent.encode(objectMapper, "token", requestId, traceId,
-                                    Map.of("text", token)))
-                            .onErrorResume(error -> Flux.just(errorFrame(requestId, traceId, "LLM request failed")));
+                            .map(token -> {
+                                answerText.append(token);
+                                return SseEvent.encode(objectMapper, "token", requestId, traceId,
+                                        Map.of("text", token));
+                            })
+                            .onErrorResume(error -> {
+                                answerFailed.set(true);
+                                return Flux.just(errorFrame(requestId, traceId, "LLM request failed"));
+                            });
 
-            // SSE 输出顺序：@@SOURCES@@ → 多个答案片段 → @@METRICS@@。
+            Mono<ServerSentEvent<String>> persistForReview = Mono.fromRunnable(() -> {
+                        if (answerFailed.get() || answerText.isEmpty()) return;
+                        try {
+                            humanReviewService.submit(requestId, question, answerText.toString(),
+                                    reviewSources(retrieval.hits()), access.role(), strategy.name());
+                            reviewQueued.set(true);
+                        } catch (RuntimeException error) {
+                            // 审核入队是旁路能力；失败不能抹掉已经生成并发送给用户的回答。
+                            log.warn("human_review_enqueue_failed request_id={} error={}",
+                                    requestId, error.getClass().getSimpleName());
+                        }
+                    })
+                    .then(Mono.fromSupplier(() -> doneFrame(requestId, traceId, reviewQueued.get())));
+
+            // SSE 输出顺序：来源 → 多个答案片段 → 指标 → 审核入队 → 完成。
             return Flux.concat(Mono.just(sourcesFrame(requestId, traceId, retrieval)), answer,
                             Mono.fromSupplier(() -> metricsFrame(requestId, traceId, retrieval, started)),
-                            Mono.just(doneFrame(requestId, traceId)))
+                            persistForReview)
                     .doOnComplete(() -> log.info(
                             "enterprise_request request_id={} strategy={} lexical_backend={} vector_latency={}ms " +
                                     "bm25_or_fts_latency={}ms rerank_latency={}ms candidate_count={} " +
@@ -188,6 +218,18 @@ public class EnterpriseChatService {
         return SseEvent.encode(objectMapper, "sources", requestId, traceId, frame);
     }
 
+    private List<Map<String, Object>> reviewSources(List<EnterpriseSearchHit> hits) {
+        return hits.stream().map(hit -> {
+            Map<String, Object> source = new LinkedHashMap<>();
+            source.put("rank", hit.rank());
+            source.put("title", hit.title());
+            source.put("document_id", hit.externalId());
+            source.put("chunk_id", hit.chunkId());
+            source.put("chunk", hit.content());
+            return source;
+        }).toList();
+    }
+
     private ServerSentEvent<String> metricsFrame(String requestId, String traceId,
                                                   EnterpriseRetrievalResult retrieval, long started) {
         EnterpriseRetrievalMetrics values = retrieval.metrics();
@@ -223,8 +265,9 @@ public class EnterpriseChatService {
         return SseEvent.encode(objectMapper, "error", requestId, traceId, Map.of("request_id", requestId, "message", message));
     }
 
-    private ServerSentEvent<String> doneFrame(String requestId, String traceId) {
-        return SseEvent.encode(objectMapper, "done", requestId, traceId, Map.of("status", "complete"));
+    private ServerSentEvent<String> doneFrame(String requestId, String traceId, boolean reviewQueued) {
+        return SseEvent.encode(objectMapper, "done", requestId, traceId,
+                Map.of("status", "complete", "review_queued", reviewQueued));
     }
 
     private ServerSentEvent<String> tokenFrame(String requestId, String traceId, String text) {

@@ -53,7 +53,13 @@ const copy = computed(() => props.locale === 'zh' ? {
   chunkLogicTitle: '切片怎么生成',
   chunkLogic: '导入器先按 Markdown 标题、段落和代码块保留结构，再用 cl100k_base 计数；默认每片最多 700 tokens，同一章节相邻片最多重叠 80 tokens。可引用原文与仅用于检索的上下文前缀分开保存。',
   queryLogicTitle: '这里怎么查询',
-  queryLogic: '先锁定 ACTIVE 语料并执行 tenant / 角色 ACL。空搜索直接分页；关键词搜索走 PostgreSQL GIN 全文索引，同时匹配标题与文档 ID，再按相关度排序。详情始终返回原始可引用文本。',
+  queryStep1: '锁定唯一的 ACTIVE 语料版本，避免新旧切片混查。',
+  queryStep2: '先按 tenant_id、access_level 与 department 做权限过滤。',
+  queryStep3: '搜索为空时直接分页；有关键词时走 PostgreSQL GIN 全文索引，并补充匹配标题、文档 ID。',
+  queryStep4: '按相关度排序并分页；展开后返回原始可引用文本。',
+  queryBoundary: '注意：切片池是运维浏览/定位接口，不做向量召回。首页问答使用的是向量 + 全文检索 + RRF 融合。',
+  permissionLogicTitle: 'role 与切片 metadata 的关系',
+  permissionLogic: 'role 是当前访问者的演示身份，不是切片自身字段。切片沿用所属文档的 tenant_id、department、access_level；展开任一切片即可查看 permission。public 切片会被所有演示角色看到。',
   elapsed: '本次端到端查询',
   search: '按标题、文档 ID 或正文搜索',
   searchAction: '搜索切片',
@@ -80,7 +86,13 @@ const copy = computed(() => props.locale === 'zh' ? {
   chunkLogicTitle: 'How chunks are created',
   chunkLogic: 'The importer preserves Markdown headings, paragraphs, and fenced code blocks, then counts with cl100k_base. Defaults are 700 tokens per chunk and up to 80 overlapping tokens within the same section. Citable text is stored separately from retrieval-only context.',
   queryLogicTitle: 'How this page searches',
-  queryLogic: 'The API selects the ACTIVE corpus and applies tenant/role ACLs first. Empty searches page directly; keyword searches use PostgreSQL GIN full-text search plus title/document ID matching, then rank results. Details always return original citable text.',
+  queryStep1: 'Select the single ACTIVE corpus so versions are never mixed.',
+  queryStep2: 'Filter by tenant_id, access_level, and department before ranking.',
+  queryStep3: 'An empty query pages directly; text uses PostgreSQL GIN full-text search plus title and document-ID matching.',
+  queryStep4: 'Rank and paginate results; expanded details return original citable text.',
+  queryBoundary: 'This pool is an operational browser, so it does not run vector retrieval. The Q&A console uses vector + full-text retrieval with RRF fusion.',
+  permissionLogicTitle: 'Role versus chunk metadata',
+  permissionLogic: 'Role is the current viewer identity, not a chunk field. A chunk inherits tenant_id, department, and access_level from its document. Expand a chunk to inspect permission; public chunks are visible to every demo role.',
   elapsed: 'end-to-end query',
   search: 'Search title, document ID, or content',
   searchAction: 'Search chunks',
@@ -178,7 +190,13 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 
     <div class="logic-grid">
       <article class="card"><strong>{{ copy.chunkLogicTitle }}</strong><p>{{ copy.chunkLogic }}</p></article>
-      <article class="card"><strong>{{ copy.queryLogicTitle }}</strong><p>{{ copy.queryLogic }}</p></article>
+      <article class="card search-logic"><strong>{{ copy.queryLogicTitle }}</strong><ol>
+        <li><b>01</b><span>{{ copy.queryStep1 }}</span></li>
+        <li><b>02</b><span>{{ copy.queryStep2 }}</span></li>
+        <li><b>03</b><span>{{ copy.queryStep3 }}</span></li>
+        <li><b>04</b><span>{{ copy.queryStep4 }}</span></li>
+      </ol><p>{{ copy.queryBoundary }}</p></article>
+      <article class="card"><strong>{{ copy.permissionLogicTitle }}</strong><p>{{ copy.permissionLogic }}</p></article>
     </div>
 
     <form class="chunk-search card" @submit.prevent="load(0)">
@@ -244,7 +262,8 @@ watch(() => [props.role, props.ready, props.apiBase], () => {
 .role-badge select { background: transparent; border: 0; color: #fffaf4; font: 500 15px/1.3 var(--font-editorial); margin-top: 6px; padding: 0; width: 100%; }
 .role-badge option { color: #282521; }
 .chunk-flow { background: #edf5ef; border: 1px solid #a9c7b2; border-radius: 12px; color: #35634a; font: 11px/1.5 ui-monospace, monospace; padding: 14px 17px; }
-.logic-grid { display:grid; gap:10px; grid-template-columns:repeat(2,minmax(0,1fr)); }.logic-grid article { padding:18px 20px; }.logic-grid strong { color:#49423b; font-size:12px; }.logic-grid p { color:#686158; font-size:12px; line-height:1.7; margin:8px 0 0; }
+.logic-grid { display:grid; gap:10px; grid-template-columns:repeat(3,minmax(0,1fr)); }.logic-grid article { padding:18px 20px; }.logic-grid strong { color:#49423b; font-size:12px; }.logic-grid p { color:#686158; font-size:12px; line-height:1.7; margin:8px 0 0; }
+.search-logic ol { display:grid; gap:8px; list-style:none; margin:12px 0 0; padding:0; }.search-logic li { align-items:start; display:grid; gap:8px; grid-template-columns:24px 1fr; }.search-logic li b { color:#b55942; font:700 9px/1.6 ui-monospace,monospace; }.search-logic li span { color:#686158; font-size:11px; line-height:1.55; }.search-logic p { border-top:1px solid #e3ddd4; padding-top:9px; }
 .chunk-search label { color: #817a70; display: block; font-size: 10px; font-weight: 700; letter-spacing: .07em; margin-bottom: 9px; text-transform: uppercase; }
 .chunk-search > div { display: flex; gap: 8px; }
 .chunk-search input { background: #fffdf9; border: 1px solid #cfc6ba; border-radius: 10px; color: #282521; flex: 1; min-width: 0; padding: 12px 13px; }

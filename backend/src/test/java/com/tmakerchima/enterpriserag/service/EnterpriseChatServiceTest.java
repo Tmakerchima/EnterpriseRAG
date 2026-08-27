@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -30,6 +31,7 @@ class EnterpriseChatServiceTest {
         ChatClient chatClient = mock(ChatClient.class);
         EnterpriseRetrievalService retrievalService = mock(EnterpriseRetrievalService.class);
         EnterpriseInteractionService interactionService = mock(EnterpriseInteractionService.class);
+        EnterpriseHumanReviewService humanReviewService = mock(EnterpriseHumanReviewService.class);
         EnterpriseRetrievalResult empty = new EnterpriseRetrievalResult(List.of(),
                 com.tmakerchima.enterpriserag.model.EnterpriseRetrievalStrategy.HYBRID,
                 new EnterpriseRetrievalMetrics(0, 0, 0, 0, 0, 0));
@@ -37,7 +39,7 @@ class EnterpriseChatServiceTest {
         EnterpriseChatService service = new EnterpriseChatService(chatClient, retrievalService,
                 new ObjectMapper(), "HYBRID", true,
                 new EnterpriseTelemetry(new SimpleMeterRegistry(), ObservationRegistry.create()),
-                interactionService);
+                interactionService, humanReviewService);
 
         String stream = service.streamAnswer(
                 new ChatRequest("What is missing?", "public", "tenant-a", "HYBRID"),
@@ -45,8 +47,12 @@ class EnterpriseChatServiceTest {
                 .map(ServerSentEvent::data)
                 .collect(Collectors.joining());
 
-        assertThat(stream).contains("Insufficient evidence", "\"type\":\"sources\"", "\"type\":\"done\"");
+        assertThat(stream).contains("Insufficient evidence", "\"type\":\"sources\"", "\"type\":\"done\"",
+                "\"review_queued\":true");
         verify(retrievalService).retrieve(any(), any(), any());
+        verify(humanReviewService).submit(eq("request-123"), eq("What is missing?"),
+                eq("Insufficient evidence in the authorized corpus to answer this question."),
+                eq(List.of()), eq("public"), eq("HYBRID"));
         verifyNoInteractions(chatClient);
     }
 
@@ -55,10 +61,11 @@ class EnterpriseChatServiceTest {
         ChatClient chatClient = mock(ChatClient.class);
         EnterpriseRetrievalService retrievalService = mock(EnterpriseRetrievalService.class);
         EnterpriseInteractionService interactionService = mock(EnterpriseInteractionService.class);
+        EnterpriseHumanReviewService humanReviewService = mock(EnterpriseHumanReviewService.class);
         EnterpriseChatService service = new EnterpriseChatService(chatClient, retrievalService,
                 new ObjectMapper(), "HYBRID", true,
                 new EnterpriseTelemetry(new SimpleMeterRegistry(), ObservationRegistry.create()),
-                interactionService);
+                interactionService, humanReviewService);
 
         String stream = service.streamAnswer(
                 new ChatRequest("x".repeat(4_001), "public", "tenant-a", "HYBRID"),
@@ -67,6 +74,6 @@ class EnterpriseChatServiceTest {
                 .collect(Collectors.joining());
 
         assertThat(stream).contains("question must not exceed 4000 characters");
-        verifyNoInteractions(retrievalService, chatClient, interactionService);
+        verifyNoInteractions(retrievalService, chatClient, interactionService, humanReviewService);
     }
 }

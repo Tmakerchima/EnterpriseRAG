@@ -54,6 +54,21 @@ interface Health {
   chunk_count?: number
   embedded_chunk_count?: number
   failed_count?: number
+  failed_count_semantics?: string
+  ingestion_failures?: Array<{
+    status: string
+    failed_count: number
+    attempts: number
+    last_error_code?: string | null
+    documents_processed: number
+    chunks_processed: number
+  }>
+  access_distribution?: Array<{
+    department: string
+    access_level: string
+    document_count: number
+    chunk_count: number
+  }>
   vector_backend?: string
   embedding_model?: string
   embedding_dimension?: number
@@ -122,7 +137,10 @@ const copy = {
     expected: '目标文档',
     chunks: '切片',
     embedded: '已向量化',
-    failed: '失败',
+    failed: '失败尝试',
+    failedExplain: '这里统计的是导入任务失败尝试，不是缺失文档。当前文档已入库 {documents}/{expected}；同一个任务重试失败会重复累计。',
+    failedCode: '最近错误码',
+    accessDistribution: '语料权限元数据',
     backend: '向量后端',
     model: 'Embedding 模型',
     benchmark: '评估',
@@ -153,10 +171,10 @@ const copy = {
     contextChunks: '上下文片段',
     feedbackPrompt: '这个回答有帮助吗？',
     helpful: '有帮助',
-    needsReview: '送人工审核',
+    needsReview: '无帮助',
     feedbackThanks: '谢谢，反馈已记录。',
-    reviewQueued: '问题、回答与引用片段已进入独立的人工审核页。',
-    reviewQueueFailed: '反馈已记录，但人工审核入队失败，请检查 V6 数据库迁移。',
+    reviewQueued: '本次问题、系统实际回答与引用片段已自动进入人工审核页。',
+    reviewQueueFailed: '人工审核自动入队失败；回答仍可使用，请检查后端审核表和迁移。',
     footer: 'EnterpriseRAG · 企业知识库检索与评测工作台',
     api: 'API',
     notConfigured: '未配置',
@@ -206,7 +224,10 @@ const copy = {
     expected: 'expected',
     chunks: 'chunks',
     embedded: 'embedded',
-    failed: 'failed',
+    failed: 'failed attempts',
+    failedExplain: 'This counts failed ingestion attempts, not missing documents. {documents}/{expected} documents are present; repeated failures of one retried job are counted again.',
+    failedCode: 'latest error code',
+    accessDistribution: 'corpus access metadata',
     backend: 'vector backend',
     model: 'embedding model',
     benchmark: 'evaluation',
@@ -237,10 +258,10 @@ const copy = {
     contextChunks: 'context chunks',
     feedbackPrompt: 'Was this answer useful?',
     helpful: 'Helpful',
-    needsReview: 'Send to human review',
+    needsReview: 'Not helpful',
     feedbackThanks: 'Thanks — feedback was recorded.',
-    reviewQueued: 'The question, answer, and cited excerpts are now in the separate Human review page.',
-    reviewQueueFailed: 'Feedback was recorded, but review queueing failed. Check the V6 database migration.',
+    reviewQueued: 'This question, actual system answer, and cited excerpts were automatically added to Human review.',
+    reviewQueueFailed: 'Automatic review queueing failed. The answer is still available; check the review table and backend migration.',
     footer: 'EnterpriseRAG · enterprise retrieval and evaluation workspace',
     api: 'API',
     notConfigured: 'not configured',
@@ -268,6 +289,8 @@ const copy = {
 
 type CopyKey = keyof typeof copy.en
 const t = (key: CopyKey) => copy[locale.value][key]
+const interpolate = (template: string, values: Record<string, string | number>) =>
+  Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template)
 
 const roles = computed(() => [
   { value: 'public' as Role, label: t('public'), description: t('publicDescription') },
@@ -471,6 +494,10 @@ function handleEvent(event: string) {
       if (type === 'token') answer.value += String(payload.text || '')
       else if (type === 'sources') sources.value = (payload.sources || []) as Source[]
       else if (type === 'metrics') metrics.value = payload as unknown as Metrics
+      else if (type === 'done') {
+        reviewQueued.value = payload.review_queued === true
+        if (!reviewQueued.value && answer.value) feedbackError.value = t('reviewQueueFailed')
+      }
       else if (type === 'error') error.value = String(payload.message || t('requestFailed'))
     }
   } catch {
@@ -493,11 +520,11 @@ async function sendFeedback(rating: 'positive' | 'negative') {
     })
     if (response.ok) feedbackSent.value = true
   } catch { /* feedback is additive and must not affect the answer */ }
-  if (rating === 'negative') await queueForHumanReview()
+  if (rating === 'negative' && !reviewQueued.value) await queueForHumanReview()
 }
 
 async function queueForHumanReview() {
-  if (!metrics.value?.request_id || !answeredQuestion.value || !answer.value || !apiBase || reviewSubmitting.value) return
+  if (reviewQueued.value || !metrics.value?.request_id || !answeredQuestion.value || !answer.value || !apiBase || reviewSubmitting.value) return
   reviewSubmitting.value = true
   try {
     const response = await fetch(`${apiBase}/api/enterprise/reviews`, {
@@ -520,7 +547,7 @@ async function queueForHumanReview() {
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     reviewQueued.value = true
-    feedbackSent.value = true
+    feedbackError.value = ''
   } catch {
     feedbackError.value = t('reviewQueueFailed')
   } finally {
@@ -580,12 +607,22 @@ async function queueForHumanReview() {
           <div><span>{{ t('embedded') }}</span><strong>{{ health.embedded_chunk_count ?? 0 }}</strong></div>
           <div><span>{{ t('failed') }}</span><strong>{{ health.failed_count ?? 0 }}</strong></div>
         </div>
-        <div v-else class="metric-placeholder">{{ t('statusUnavailable') }}</div>
+        <div v-if="health && (health.failed_count ?? 0) > 0" class="corpus-explanation warning">
+          <strong>{{ t('failed') }} · {{ health.failed_count }}</strong>
+          <p>{{ interpolate(t('failedExplain'), { documents: health.document_count ?? 0, expected: health.expected_documents ?? 0 }) }}</p>
+          <p v-for="(failure, index) in health.ingestion_failures || []" :key="`${failure.status}-${index}`">
+            {{ failure.status }} · {{ t('failedCode') }}: {{ failure.last_error_code || 'UNKNOWN' }} · {{ failure.failed_count }}/{{ failure.attempts }}
+          </p>
+        </div>
+        <div v-if="!health" class="metric-placeholder">{{ t('statusUnavailable') }}</div>
         <div v-if="health" class="corpus-footer">
           <span>{{ t('backend') }}: {{ health.vector_backend || '—' }}</span>
           <span>{{ t('model') }}: {{ health.embedding_model || '—' }}</span>
           <span>Chunker: {{ health.chunker_version || 'V2' }}</span>
           <span>{{ t('benchmark') }}: {{ health.benchmark?.status === 'NOT_MEASURED_YET' ? t('notMeasured') : health.benchmark?.status || t('notMeasured') }}</span>
+          <span v-for="item in health.access_distribution || []" :key="`${item.department}-${item.access_level}`">
+            {{ t('accessDistribution') }}: {{ item.access_level }} · {{ item.department }} · {{ item.document_count }} docs · {{ item.chunk_count }} chunks
+          </span>
         </div>
       </section>
 
@@ -641,12 +678,13 @@ async function queueForHumanReview() {
           <p>{{ t('emptyTitle') }}</p>
           <small>{{ t('emptyNote') }}</small>
         </div>
+        <div v-if="reviewQueued" class="feedback-row muted">{{ t('reviewQueued') }}</div>
         <div v-if="metrics && !feedbackSent" class="feedback-row" aria-label="Answer feedback">
           <span>{{ t('feedbackPrompt') }}</span>
           <button type="button" @click="sendFeedback('positive')">{{ t('helpful') }}</button>
           <button type="button" :disabled="reviewSubmitting" @click="sendFeedback('negative')">{{ reviewSubmitting ? '…' : t('needsReview') }}</button>
         </div>
-        <div v-else-if="feedbackSent" class="feedback-row muted">{{ reviewQueued ? t('reviewQueued') : t('feedbackThanks') }}</div>
+        <div v-else-if="feedbackSent" class="feedback-row muted">{{ t('feedbackThanks') }}</div>
         <div v-if="feedbackError" class="feedback-row error-message">{{ feedbackError }}</div>
       </section>
 

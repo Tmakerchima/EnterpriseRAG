@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -54,6 +55,9 @@ public class EnterpriseCorpusService {
             body.put("chunk_count", 0L);
             body.put("embedded_chunk_count", 0L);
             body.put("failed_count", 0L);
+            body.put("failed_count_semantics", "INGESTION_ATTEMPTS");
+            body.put("ingestion_failures", List.of());
+            body.put("access_distribution", List.of());
             body.put("message", "Enterprise schema exists but no corpus is active");
             return body;
         }
@@ -69,6 +73,27 @@ public class EnterpriseCorpusService {
         body.put("embedded_chunk_count", count("SELECT count(*) FROM enterprise_chunks WHERE corpus_id = ? AND embedding IS NOT NULL", corpusId));
         body.put("failed_count", count("""
                 SELECT coalesce(sum(failed_count), 0) FROM enterprise_ingestion_jobs WHERE corpus_id = ?
+                """, corpusId));
+        // The worker increments failed_count once per failed ingestion attempt. It is not a
+        // count of missing documents: a retry can fail more than once before the corpus succeeds.
+        body.put("failed_count_semantics", "INGESTION_ATTEMPTS");
+        body.put("ingestion_failures", jdbcTemplate.queryForList("""
+                SELECT status, failed_count, attempts, nullif(last_error_code, '') AS last_error_code,
+                       documents_processed, chunks_processed, updated_at, finished_at
+                FROM enterprise_ingestion_jobs
+                WHERE corpus_id = ? AND failed_count > 0
+                ORDER BY updated_at DESC
+                """, corpusId));
+        body.put("access_distribution", jdbcTemplate.queryForList("""
+                SELECT d.department, d.access_level,
+                       count(DISTINCT d.document_id) AS document_count,
+                       count(c.chunk_id) AS chunk_count
+                FROM enterprise_documents d
+                LEFT JOIN enterprise_chunks c
+                  ON c.corpus_id = d.corpus_id AND c.document_id = d.document_id
+                WHERE d.corpus_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.department, d.access_level
+                ORDER BY d.department, d.access_level
                 """, corpusId));
         Map<String, Long> sourceDistribution = new LinkedHashMap<>();
         jdbcTemplate.queryForList("""

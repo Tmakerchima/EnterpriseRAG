@@ -81,6 +81,9 @@ select { display: block; font-size: 13px; padding: 11px 12px; width: 100%; }
 .corpus-grid strong { color: #49423b; display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 21px; font-weight: 400; margin-top: 6px; }
 .corpus-grid small { display: inline; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 400; margin-left: 5px; text-transform: none; }
 .corpus-footer { border-top: 1px solid #e3ddd4; color: #91887c; display: flex; flex-wrap: wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; gap: 16px; margin-top: 16px; padding-top: 15px; }
+.corpus-explanation { background: #fff4df; border: 1px solid #dfbe7c; border-radius: 10px; color: #745b2e; margin-top: 12px; padding: 12px 14px; }
+.corpus-explanation strong { font-size: 11px; }
+.corpus-explanation p { font-size: 11px; line-height: 1.55; margin: 5px 0 0; }
 .selection-note.warning { color: #a1432e; }
 
 .answer-card { min-height: 242px; }
