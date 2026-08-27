@@ -118,13 +118,14 @@ public class EnterpriseHumanReviewService {
     private ReviewItem map(java.sql.ResultSet result, int rowNumber) throws java.sql.SQLException {
         Timestamp reviewed = result.getTimestamp("reviewed_at");
         Timestamp judged = result.getTimestamp("judged_at");
+        java.math.BigDecimal judgeScore = result.getBigDecimal("judge_score");
         return new ReviewItem(
                 result.getObject("review_id", UUID.class), result.getString("request_id"),
                 result.getString("question"), result.getString("answer"),
                 parseSources(result.getString("sources")), result.getString("access_role"),
                 result.getString("strategy"), result.getString("status"), result.getString("verdict"),
                 result.getString("reviewer_comment"), result.getString("judge_status"),
-                result.getString("judge_verdict"), result.getObject("judge_score", Double.class),
+                result.getString("judge_verdict"), judgeScore == null ? null : judgeScore.doubleValue(),
                 result.getString("judge_reason"), result.getString("judge_model"),
                 judged == null ? null : judged.toInstant(), result.getTimestamp("created_at").toInstant(),
                 reviewed == null ? null : reviewed.toInstant());
